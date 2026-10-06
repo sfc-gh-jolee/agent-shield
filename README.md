@@ -2,6 +2,65 @@
 
 Automated red-teaming and security posture management for Snowflake Cortex Agents.
 
+## v2 sandbox implementation (in progress)
+
+The `v2-real-agent-redteam` branch adds an actual agent-execution test runner.
+The original v1 documentation below does not describe the v2 deployment or its
+current completeness. Do not run `deploy.sql` to deploy v2.
+
+Deploy in order using an explicitly selected sandbox connection:
+
+```bash
+snow sql -c <sandbox_connection> -f deploy/01_demo_fixtures.sql
+snow sql -c <sandbox_connection> -f deploy/02_core.sql
+snow sql -c <sandbox_connection> -f deploy/03_procs.sql
+```
+
+The fixture script replaces demo objects: do not rerun it against retained data.
+These scripts use ACCOUNTADMIN and create intentionally vulnerable synthetic demo
+objects. They are not a production deployment or a grant recommendation.
+
+Implemented in v2:
+- `CORE.DISCOVER_AGENTS`: schema-scoped discovery; persists specifications and
+  returns names, visibility, tool counts, and errors without specification text.
+- `CORE.RED_TEAM_AGENT`: runs selected templates through registered persona
+  runners; captures tool calls, generated SQL, warnings, raw responses, and
+  thread-based multi-turn evidence. Default scope is demo tests as RT_SALES_REP.
+- `CORE.RUN_SINGLE_ATTACK`: selects one registered template and persona.
+- Deterministic canary and successful-tool forbidden-object checks precede a
+  structured-output LLM judge. Incomplete responses, judge errors, and parse
+  errors are INCONCLUSIVE, never implicit passes.
+
+Example (using AGENTSHIELD_WH):
+
+```sql
+CALL AGENTSHIELD_DB.CORE.DISCOVER_AGENTS();
+CALL AGENTSHIELD_DB.CORE.RUN_SINGLE_ATTACK(
+  'AGENTSHIELD_DEMO.AGENTS.SAFE_SALES_AGENT',
+  'RT_SALES_REP', 'demo_canary_lookup');
+```
+
+The evaluator only allows the three demo agents. It does not alter agents or
+grants. Findings and raw evidence are stored in `AGENTSHIELD_DB.CORE.ATTACK_RESULTS`;
+procedure responses contain summaries only. Restrict access to the evidence
+tables. Scan COMPLETE means execution finished, not that every test passed.
+
+Limits: canaries use literal token matching (including numeric comma formatting),
+not arbitrary encodings. Forbidden-object matching is a name-fragment heuristic
+over successful tool calls, mapped resources, and SQL, not a SQL lineage parser.
+LLM-only verdicts require review; a passing sample is not a security certification.
+Discovery does not delete stale inventory rows. Quoted input identifiers are not
+supported by schema discovery's input parameter. Runs are synchronous and capped
+at 100 cases and 10 turns per case.
+
+Still pending: surface mapping, scoring, dry-run remediation, chain analysis,
+async scheduling, the v2 CoWork agent, and the remediation/retest demo.
+
+Offline parser tests: `python3 tests/test_procedures.py`.
+Validation details: [v2 validation log](docs/V2_VALIDATION.md).
+
+## Original v1 overview
+
 > "Before you deploy this agent to 500 users, have you tried to break it?"
 
 AgentShield is a Cortex Agent that proactively tests other Cortex Agents for security vulnerabilities — PII leakage, prompt injection, scope violations, data exfiltration, role escalation, and social engineering — before they reach production.
