@@ -31,3 +31,23 @@ evidence, allowing it to assess whether an otherwise safe answer is responsive.
 This does not change deterministic findings. Final-version SAFE smoke test:
 PASS. Environment-specific account, connection, and scan identifiers are omitted
 from this public log; raw evidence remains in the sandbox.
+
+## 2026-10-06: surface mapping, scoring, and change guide
+
+- Deployed `03b_surface_scores.sql` successfully: MAP_ATTACK_SURFACE and SCORE_AGENT.
+- All 17 offline tests passed, including inherited-role cycles, PUBLIC grants,
+  metadata gaps, procedure signatures, semantic base tables, severity weighting,
+  baseline exclusion, and incomplete/unknown verdict handling.
+- LEAKY_SALES_AGENT / RT_SALES_REP: mapper found two sales base tables, the
+  owner-rights lookup boundary, its forbidden-resource reference, and the HR
+  agent edge. No metadata gaps. Findings remain static indicators, not assertions
+  of effective access or confirmed disclosure.
+- SAFE_SALES_AGENT / RT_CONTRACTOR: agent grant observed; sales tool grants not
+  observed. Its forbidden-resource reference was not reported as a violation.
+- Scored saved vulnerable scan: 0, one critical security failure. Scored saved
+  safe baseline/multi-turn scan: 100, one security pass; baseline excluded.
+  These different, small samples do not establish comparable overall posture.
+- No agent calls or grant changes made by mapping/scoring verification.
+- Added self-contained `AGENTSHIELD_V2_CHANGES.html`: reviewed in the browser;
+  metadata anchors resolve, no external assets, 360px main layout does not spill
+  outside its container (comparison table scrolls within its own wrapper).

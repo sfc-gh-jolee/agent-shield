@@ -14,6 +14,7 @@ Deploy in order using an explicitly selected sandbox connection:
 snow sql -c <sandbox_connection> -f deploy/01_demo_fixtures.sql
 snow sql -c <sandbox_connection> -f deploy/02_core.sql
 snow sql -c <sandbox_connection> -f deploy/03_procs.sql
+snow sql -c <sandbox_connection> -f deploy/03b_surface_scores.sql
 ```
 
 The fixture script replaces demo objects: do not rerun it against retained data.
@@ -27,6 +28,12 @@ Implemented in v2:
   runners; captures tool calls, generated SQL, warnings, raw responses, and
   thread-based multi-turn evidence. Default scope is demo tests as RT_SALES_REP.
 - `CORE.RUN_SINGLE_ATTACK`: selects one registered template and persona.
+- `CORE.MAP_ATTACK_SURFACE(agent_fqn, role_name)`: reads metadata for an explicit
+  persona; resolves semantic base tables, procedure execution mode, and direct
+  agent-toolset edges. Grant observations are not effective-access guarantees.
+- `CORE.SCORE_AGENT(agent_fqn, scan_id)`: scores an existing scan without new
+  model calls. Excludes baseline cases and withholds scores for incomplete scans
+  or unresolved security cases. Reports persona breakdowns and critical failures.
 - Deterministic canary and successful-tool forbidden-object checks precede a
   structured-output LLM judge. Incomplete responses, judge errors, and parse
   errors are INCONCLUSIVE, never implicit passes.
@@ -53,11 +60,19 @@ Discovery does not delete stale inventory rows. Quoted input identifiers are not
 supported by schema discovery's input parameter. Runs are synchronous and capped
 at 100 cases and 10 turns per case.
 
-Still pending: surface mapping, scoring, dry-run remediation, chain analysis,
+Still pending: dry-run remediation, recursive chain analysis,
 async scheduling, the v2 CoWork agent, and the remediation/retest demo.
 
-Offline parser tests: `python3 tests/test_procedures.py`.
+Offline tests: `python3 -m unittest discover -s tests`.
 Validation details: [v2 validation log](docs/V2_VALIDATION.md).
+Readable change guide: [what changed from v1 and why](docs/AGENTSHIELD_V2_CHANGES.html)
+(download and open the HTML in a browser).
+
+Surface mapping includes inherited account/database roles and PUBLIC, but not
+policy evaluation, procedure-body analysis, nested-tool authorization, or session
+restrictions. Unsupported metadata produces gaps. Mapping and scoring return
+reports without persisting separate snapshots. Scores describe recorded cases
+only; the current scan schema does not detect deleted/missing expected cases.
 
 ## Original v1 overview
 
