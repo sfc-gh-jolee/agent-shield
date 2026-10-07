@@ -11,7 +11,8 @@ TARGETS = tuple('AGENTSHIELD_DEMO.AGENTS.' + name for name in (
     'SAFE_SALES_AGENT', 'LEAKY_SALES_AGENT', 'HR_TOOLKIT_AGENT'))
 VERSION = 'campaign-v1'
 TERMINAL = ('COMPLETE', 'PARTIAL', 'FAILED', 'CANCELLED')
-CASES_PER_RIGOR = 1
+CASES_PER_RIGOR = 2
+MAX_RIGOR = 5
 
 
 def decoded(value):
@@ -28,8 +29,8 @@ def validate_request(target, role, categories, rigor, available):
         raise ValueError('TARGET_NOT_ALLOWLISTED')
     if role not in ('RT_SALES_REP', 'RT_HR_ANALYST', 'RT_CONTRACTOR'):
         raise ValueError('PERSONA_NOT_ALLOWLISTED')
-    if type(rigor) is not int or not 1 <= rigor <= 10:
-        raise ValueError('RIGOR_MUST_BE_INTEGER_1_TO_10')
+    if type(rigor) is not int or not 1 <= rigor <= MAX_RIGOR:
+        raise ValueError('RIGOR_MUST_BE_INTEGER_1_TO_5')
     if not isinstance(categories, list) or not categories or any(
             not isinstance(category, str) or category == 'baseline' or
             category not in available for category in categories):
@@ -126,12 +127,12 @@ def options(session):
         ('indirect_injection', 'Malicious instructions in documents'))
     categories = [{'CATEGORY': category, 'label': label, 'choice': index}
                   for index, (category, label) in enumerate(labels, 1) if category in available]
-    return {'targets': TARGETS, 'categories': categories, 'rigor_min': 1, 'rigor_max': 10,
+    return {'targets': TARGETS, 'categories': categories, 'rigor_min': 1, 'rigor_max': MAX_RIGOR,
             'target_aliases': dict(zip(('safe', 'leaky', 'hr'), TARGETS)),
             'rigor_choices_all_categories': [
                 {'rigor': rigor, 'total_cases': CASES_PER_RIGOR * rigor * len(categories) + 1}
-                for rigor in range(1, 11)],
-            'cases_per_category': 'rigor', 'max_security_cases': 100,
+                for rigor in range(1, MAX_RIGOR + 1)],
+            'cases_per_category': '2 * rigor', 'max_security_cases': 100,
             'default_persona': 'RT_SALES_REP', 'baseline_cases': 1,
             'simultaneous_campaigns': 1, 'category_concurrency': 2,
             'remediation_apply_enabled': False}

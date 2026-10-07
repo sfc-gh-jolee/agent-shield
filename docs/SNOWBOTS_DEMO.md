@@ -57,7 +57,7 @@ Suggested instructions (replace local path/connection/account placeholders):
 > `AGENTSHIELD_DB.ORCH.AGENTSHIELD`; relay its questions about target, categories,
 > and rigor. Include already collected choices on subsequent chat calls (the
 > client starts a fresh orchestration conversation each time). Track the campaign
-> ID. Poll saved status only; never resubmit a campaign to check progress.
+> ID. Say results (or status) to read saved state; never resubmit a campaign to check progress.
 > Download a completed report using `report --output <new workspace file>.html`
 > and share it with the existing artifact_share tool. Confirm sharing succeeded
 > before saying the attachment is available. Report PASS/FAIL/INCONCLUSIVE and

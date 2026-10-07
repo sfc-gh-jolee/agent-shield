@@ -141,3 +141,20 @@ port during this checkpoint. No SnowBots source files modified.
 - All 51 offline tests pass; whitespace checks pass. Zero new/active campaigns
   after the live intake checks. This validates API behavior, not actual CoWork
   widget rendering or a fully chat-started campaign. Existing HTML unchanged.
+## 2026-10-07: rigor 1-5, setup questions and results flow
+
+- Presets removed. Setup asks for target and rigor together; in user testing
+  CoWork rendered the agent question as a selectable choice.
+- Rigor validated as integer 1-5 with `2 * rigor` cases per category (17-81 total
+  for all eight categories, maximum 80 security cases under the 100-case cap).
+  Retest of an earlier campaign replays the parent's saved case count (test added).
+- `results` verified live through the account-checked client: a running
+  vulnerable-agent campaign at rigor 3 (49 cases) returned progress only (baseline
+  PASS; early partial security results including one data-exfiltration FAIL),
+  and a completed campaign returned its full summary in the same reply.
+  Instruction-only update applied mid-campaign without touching worker code.
+- That campaign was started from CoWork, the first chat-initiated campaign; its
+  final results were not yet available at this checkpoint.
+- All 52 offline tests pass. The 100-case cap is AgentShield's own guardrail
+  for worker timeout, single-call generation budget and cost, not a CoCo or
+  Snowflake limit.

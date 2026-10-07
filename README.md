@@ -11,8 +11,8 @@ rehearsal are not yet verified.** No fix/apply operation is exposed.
 
 ## Multi-agent demo
 
-The orchestrator asks for categories and rigor (1–10). Each category gets
-`rigor` generated cases (1 per category per level), persisted before execution for exact retests.
+The orchestrator asks for categories and rigor (1–5). Each category gets
+`2 * rigor` generated cases (rigor 1–5), persisted before execution for exact retests.
 Two Snowflake task workers invoke category agents and the existing persona
 runner. The summarizer orders validated findings; a deterministic renderer
 produces the report. The remediation agent selects only an eligible reviewed
@@ -34,9 +34,11 @@ reports can be reformatted without rerunning agents; content remains readable
 when preview hosts disable scripts.
 
 For low-typing setup, say **"Set up a scan, don't start it yet."** The agent
-asks which target and which rigor level 1–10, evenly spaced: with all eight
-categories each level adds 8 cases, from 9 to 81 total including baseline.
-Nothing starts until you reply Start. The expanded library has **15 reference templates
+asks which target and which rigor level 1–5, evenly spaced: with all eight
+categories each level adds 16 cases (17, 33, 49, 65, 81 total including baseline).
+Nothing starts until you reply Start. After it starts, say **results** in the same
+chat at any time: you get progress while it runs and the full summary once it
+finishes. The chat cannot push a message on its own when a scan completes. The expanded library has **15 reference templates
 per security category**, plus one baseline; reference count is not run count.
 See [intake and reference-library details](docs/INTAKE_AND_TEMPLATES.md).
 

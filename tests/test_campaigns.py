@@ -13,10 +13,10 @@ SPEC.loader.exec_module(MODULE)
 
 class CampaignContractTests(unittest.TestCase):
     def test_rigor_counts_and_boundaries(self):
-        for rigor in range(1, 11):
+        for rigor in range(1, 6):
             result = MODULE.validate_request(MODULE.TARGETS[0], 'RT_SALES_REP', ['scope'], rigor, ['scope'])
-            self.assertEqual(result['expected_security_cases'], rigor)
-        for bad in (None, True, '1', 1.5, 0, 11):
+            self.assertEqual(result['expected_security_cases'], rigor * 2)
+        for bad in (None, True, '1', 1.5, 0, 6, 10):
             with self.assertRaises(ValueError):
                 MODULE.validate_request(MODULE.TARGETS[0], 'RT_SALES_REP', ['scope'], bad, ['scope'])
 
@@ -29,7 +29,7 @@ class CampaignContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.validate_request(MODULE.TARGETS[0], 'ACCOUNTADMIN', ['scope'], 1, ['scope'])
         with self.assertRaises(ValueError):
-            MODULE.validate_request(MODULE.TARGETS[0], 'RT_SALES_REP', list('abcdefghijk'), 10, list('abcdefghijk'))
+            MODULE.validate_request(MODULE.TARGETS[0], 'RT_SALES_REP', list('abcdefghijk'), 5, list('abcdefghijk'))
 
     def test_generation_policy_is_reference_owned(self):
         refs = {'ref': {'ID': 'ref', 'CATEGORY': 'scope', 'SEVERITY': 'high',
@@ -99,7 +99,7 @@ class CampaignContractTests(unittest.TestCase):
             result = MODULE.submit(object(), {'target': MODULE.TARGETS[0], 'categories': ['scope'],
                                               'rigor': 1, 'request_key': 'request-001'})
         inserts = [(statement, params) for statement, params in statements if statement.startswith('INSERT')]
-        self.assertEqual(result['expected_security_cases'], 1)
+        self.assertEqual(result['expected_security_cases'], 2)
         self.assertTrue(all(None not in params for _, params in inserts))
         self.assertIn("NULLIF(?, '')", inserts[0][0])
 

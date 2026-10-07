@@ -40,14 +40,16 @@ class IntakeTests(unittest.TestCase):
         categories = [row['CATEGORY'] for row in result['categories']]
         self.assertNotIn('presets', result)
         choices = result['rigor_choices_all_categories']
-        self.assertEqual([row['rigor'] for row in choices], list(range(1, 11)))
-        self.assertEqual([row['total_cases'] for row in choices], [8 * rigor + 1 for rigor in range(1, 11)])
+        self.assertEqual([row['rigor'] for row in choices], list(range(1, 6)))
+        self.assertEqual([row['total_cases'] for row in choices], [17, 33, 49, 65, 81])
         for choice in choices:
             validated = CAMPAIGNS.validate_request(CAMPAIGNS.TARGETS[0], 'RT_SALES_REP', categories, choice['rigor'], categories)
             self.assertEqual(validated['expected_security_cases'] + 1, choice['total_cases'])
-        CAMPAIGNS.validate_request(CAMPAIGNS.TARGETS[0], 'RT_SALES_REP', categories, 10, categories)
+        CAMPAIGNS.validate_request(CAMPAIGNS.TARGETS[0], 'RT_SALES_REP', categories, 5, categories)
+        with self.assertRaisesRegex(ValueError, 'RIGOR_MUST_BE_INTEGER_1_TO_5'):
+            CAMPAIGNS.validate_request(CAMPAIGNS.TARGETS[0], 'RT_SALES_REP', categories, 6, categories)
         with self.assertRaisesRegex(ValueError, 'CASE_BUDGET_EXCEEDED'):
-            CAMPAIGNS.validate_request(CAMPAIGNS.TARGETS[0], 'RT_SALES_REP', categories + list('abc'), 10,
+            CAMPAIGNS.validate_request(CAMPAIGNS.TARGETS[0], 'RT_SALES_REP', categories + list('abc'), 5,
                                        categories + list('abc'))
 
     def test_build_has_intake_guards_and_nonstarting_samples(self):
@@ -64,6 +66,7 @@ class IntakeTests(unittest.TestCase):
         self.assertIn('must NEVER call submit or start', instructions['orchestration'])
         self.assertIn('Never display template counts', instructions['orchestration'])
         self.assertIn('two separate selectable questions', instructions['orchestration'])
+        self.assertIn('immediately call report_summary in the same turn', instructions['orchestration'])
 
 
 class LibraryTests(unittest.TestCase):

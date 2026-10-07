@@ -40,11 +40,37 @@ def run_file(connection, path):
         raise RuntimeError('DEPLOYMENT_FAILED; inspect Snowflake query history locally')
 
 
+def update_instructions(connection, expected):
+    # Workers never import the orchestrator spec, so this is safe mid-campaign.
+    if sql(connection, 'SELECT CURRENT_ACCOUNT() AS ACCOUNT')[0]['ACCOUNT'] != expected:
+        raise ValueError('ACCOUNT_MISMATCH')
+    build = ROOT / 'build' / 'campaigns'
+    desired = json.loads((build / 'orchestrator_spec.json').read_text())
+    old_spec = get_spec(connection)
+    grants = sql(connection, 'SHOW GRANTS ON AGENT ' + AGENT)
+    snapshot = build / ('instructions-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ'))
+    snapshot.mkdir()
+    (snapshot / 'before.json').write_text(json.dumps({'spec': old_spec, 'grants': grants}, indent=2))
+    proposed = json.loads(json.dumps(old_spec))
+    proposed.setdefault('instructions', {}).update(desired['instructions'])
+    sql(connection, 'ALTER AGENT ' + AGENT + ' MODIFY LIVE VERSION SET SPECIFICATION = ' + literal(json.dumps(proposed)))
+    if get_spec(connection) != proposed:
+        raise ValueError('SPEC_READBACK_MISMATCH')
+    if sql(connection, 'SHOW GRANTS ON AGENT ' + AGENT) != grants:
+        raise ValueError('AGENT_GRANTS_CHANGED')
+    (snapshot / 'after.json').write_text(json.dumps({'spec': proposed}, indent=2))
+    print(json.dumps({'instructions_updated': True, 'snapshot': str(snapshot)}))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--connection', required=True)
     parser.add_argument('--expected-account', required=True)
+    parser.add_argument('--instructions-only', action='store_true',
+                        help='Alter only orchestrator instructions; safe while a campaign runs')
     args = parser.parse_args()
+    if args.instructions_only:
+        return update_instructions(args.connection, args.expected_account)
     ready(args.connection, args.expected_account)
     build = ROOT / 'build' / 'campaigns'
     desired = json.loads((build / 'orchestrator_spec.json').read_text())

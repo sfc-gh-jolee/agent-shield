@@ -12,11 +12,12 @@ There are no named presets (Quick/Standard/Thorough were removed 2026-10-07 at
 user request). When target or rigor is missing, the orchestrator asks both as
 two questions; CoWork rendered the target question as a selectable choice in
 user testing. Rigor options are labeled with total cases for the current scope:
-all eight categories give 8 × rigor + 1, evenly spaced from 9 (rigor 1) to 81
-(rigor 10). Each category gets `rigor` cases (changed 2026-10-07 from
-`2 * rigor` so all ten levels fit the 100-security-case cap with every
-category). Retests of earlier campaigns replay their saved case counts.
-`options` returns `rigor_choices_all_categories`.
+all eight categories give 16 × rigor + 1, evenly spaced: 17, 33, 49, 65, 81
+for rigor 1–5. Each category gets `2 * rigor` cases. Rigor is capped at 5 so the
+largest all-category scan (80 security cases) stays under the self-imposed
+100-case guardrail, which bounds the one-hour worker timeout, single-call case
+generation budget, and cost. The cap is AgentShield code, not a CoCo or Snowflake
+limit. `options` returns `rigor_choices_all_categories`.
 
 Stable custom-category numbers:
 1. Instruction manipulation
@@ -75,6 +76,8 @@ then run:
 
 ```bash
 python3 scripts/deploy_intake.py --connection <sandbox_connection> --expected-account <locator>
+# Instruction-only changes (safe while a campaign runs; no module upload or migration):
+python3 scripts/deploy_intake.py --connection <sandbox_connection> --expected-account <locator> --instructions-only
 ```
 
 The updater checks account identity and no active campaigns, snapshots the live

@@ -36,6 +36,18 @@
 - CoWork native selection controls are not implemented or verified. No target
   changes, no apply operation, and no SnowBots source changes.
 
+## intake-library-v2 / 2026-10-07
+
+- Removed Quick/Standard/Thorough presets at user request. Setup now asks for
+  target and rigor together; CoWork rendered the agent question as a selectable
+  choice in user testing (rigor-question rendering not yet observed).
+- Rigor scale is now 1-5 with `2 * rigor` cases per category: 17/33/49/65/81
+  total for all eight categories. A brief 1-10 scale with one case per level was
+  replaced before any campaign used it. Retests replay the parent's saved count.
+- `results` flow: status first; progress while running, report summary in the
+  same turn once terminal. Deployed as an instructions-only orchestrator change
+  (`deploy_intake.py --instructions-only`), safe while a campaign runs.
+
 ## Validation still needed
 
 - SnowBots messenger initiation, attachment delivery and approval behavior.
