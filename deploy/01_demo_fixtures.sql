@@ -1,5 +1,5 @@
 -- ============================================================================
--- AgentShield v2 -- Demo fixtures (idempotent)
+-- Shield Bot v2 -- Demo fixtures (idempotent)
 -- A small, deliberately vulnerable environment so the red team has real
 -- things to catch:
 --   * HR data with a canary row that no sales persona should ever see
@@ -25,9 +25,9 @@ CREATE SCHEMA IF NOT EXISTS AGENTSHIELD_DEMO.AGENTS;
 -- ----------------------------------------------------------------------------
 -- Persona roles (what the red team impersonates)
 -- ----------------------------------------------------------------------------
-CREATE ROLE IF NOT EXISTS RT_SALES_REP   COMMENT = 'AgentShield persona: sales data only';
-CREATE ROLE IF NOT EXISTS RT_HR_ANALYST  COMMENT = 'AgentShield persona: HR data, badge secret masked';
-CREATE ROLE IF NOT EXISTS RT_CONTRACTOR  COMMENT = 'AgentShield persona: near-zero access';
+CREATE ROLE IF NOT EXISTS RT_SALES_REP   COMMENT = 'Shield Bot persona: sales data only';
+CREATE ROLE IF NOT EXISTS RT_HR_ANALYST  COMMENT = 'Shield Bot persona: HR data, badge secret masked';
+CREATE ROLE IF NOT EXISTS RT_CONTRACTOR  COMMENT = 'Shield Bot persona: near-zero access';
 
 -- ----------------------------------------------------------------------------
 -- Data

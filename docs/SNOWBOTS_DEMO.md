@@ -13,7 +13,7 @@ only *offer* the fix and hand back `APPLY_REQUESTED campaign_id=<id>`.
 The approval is two-part:
 
 1. **Human click (SnowBots).** The bot runs in `ask` mode and executes
-   `campaign_client.py apply_fix` as its own shell command, so SnowBots shows an
+   `scripts/apply_fix.py` as its own shell command, so SnowBots shows an
    Allow once / Deny card and records a durable receipt (turn, argument fingerprint).
 2. **Snowflake binding.** `prepare_fix` mints a one-time token (15 min, stored only as
    a hash; the client writes it to a 0600 file under `build/fix_tokens/` and never
@@ -24,7 +24,7 @@ The approval is two-part:
 Apply uses `ALTER AGENT ... MODIFY LIVE VERSION SET SPECIFICATION`, so existing
 grants are kept; it verifies the tool is gone, auto-restores on verification
 failure, records SPEC_BEFORE/AFTER in `CORE.REMEDIATION_APPLIES`, then submits and
-starts the exact retest. Rollback (`prepare_rollback` + `apply_fix`) needs its own
+starts the exact retest. Rollback (`prepare_rollback` + `apply_fix.py`) needs its own
 approval and restores the saved spec byte-for-byte (hash checked).
 
 **Known limits.** SnowBots receipts do not record *which human* clicked: anyone
@@ -80,7 +80,20 @@ The script creates or updates bot `agentshield` via `POST/PATCH /bots`, fills th
 repo path, connection, account and workspace into the instructions, and refuses
 any mode other than `ask` (use `--dry-run` to inspect). In the SnowBots UI select
 the same sandbox connection for the CoCo brain. Never choose "Always allow" on the
-`apply_fix` command. Do not paste credentials into the description or export.
+`apply_fix.py` command. Do not paste credentials into the description or export.
+
+**Running without prompts.** SnowBots "Always allow" grants for shell commands are
+scoped to the command prefix (interpreter + script path). Click "Always allow" on
+the first `campaign_client.py` card and later setup, scan, status and report calls
+run without asking; that client cannot apply fixes. `scripts/apply_fix.py` has a
+different prefix, so it still prompts every time. The bot also labels that call
+"Destructive change: ..."; if SnowBots matches the title against its always-ask
+list, the card hides "Always allow" and prompts even in bypass mode. Do not switch
+the bot to bypass mode: that would skip the approval click for fixes.
+
+Setup choices (agent, rigor 1-5, optional custom categories) are shown as
+clickable SnowBots question cards through the CoCo ask-user-question tool. Rigor
+levels are shown without per-level case counts.
 
 CLI examples (each requires `--connection` and `--expected-account`):
 
@@ -89,8 +102,10 @@ python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> chat --message "Test the safe sales agent. Which categories and rigor levels are available?"
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> status --request '{"campaign_id":"<id>"}'
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> report --request '{"campaign_id":"<id>"}' --output reports/campaign.html
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> launch --agent leaky --rigor 2   # submit + start, no model call
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> watch --campaign-id <id>          # new cases + running tally, up to 4 min per call
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> prepare_fix --campaign-id <id>
-python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> apply_fix --apply-id <apply_id> --receipt snowbots:<short_id>
+python3 scripts/apply_fix.py --connection <sandbox_connection> --expected-account <locator> --apply-id <apply_id> --receipt snowbots:<short_id>
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> prepare_rollback --apply-id <apply_id>
 ```
 
@@ -129,12 +144,12 @@ use `--overwrite` only when replacing the intended local report file.
    that do not expose the known flaw; do not promise a failure on every run.
 4. When the results are eligible the orchestrator asks whether to apply the fix.
    On yes the bot runs `prepare_fix`, shows the diff (tool removed, tools kept,
-   short ID, expiry), then runs `apply_fix` as a separate command: click Allow
+   short ID, expiry), then runs `apply_fix.py` as a separate command: click Allow
    once to apply, or Deny to leave the agent unchanged.
 5. Apply automatically submits and starts the exact retest. Ask for results and
    compare before/after. The fix only addresses EmployeeLookup failures; other
    failures (e.g. bulk-export refusals) remain and are reported as manual review.
-6. Roll back with `prepare_rollback` + another approved `apply_fix` to restore
+6. Roll back with `prepare_rollback` + another approved `apply_fix.py` to restore
    the vulnerable demo for the next run. A manual `retest` (original campaign ID,
    new request key, then `start`) is still available.
 

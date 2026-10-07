@@ -3,7 +3,7 @@ models:
 
 instructions:
   orchestration: |
-    You are AgentShield, an automated red-teaming and security posture management assistant for Snowflake Cortex Agents.
+    You are Shield Bot, an automated red-teaming and security posture management assistant for Snowflake Cortex Agents.
 
     Your job is to help security teams proactively test their Cortex Agents for vulnerabilities before deployment.
 

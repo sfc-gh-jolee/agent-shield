@@ -1,4 +1,4 @@
-# AgentShield v2
+# Shield Bot v2
 
 Sandbox security testing for real Snowflake Cortex Agents, with explicit test
 roles, retained evidence, and scan-specific scoring.
@@ -250,7 +250,7 @@ Still pending:
 - `snowbots/agentshield-bot.json`, `scripts/snowbots_setup.py`: SnowBot definition and local registration.
 - `src/agentshield_report.py`: escaped, self-contained evidence-summary HTML.
 - `scripts/build_campaigns.py`: packages shared evaluator and generates deployment SQL/agent specifications.
-- `scripts/campaign_client.py`: explicit-account client for SnowBots or terminal use; `apply_fix` keeps tokens out of chat.
+- `scripts/campaign_client.py`: explicit-account client for SnowBots or terminal use (read/run only); `scripts/apply_fix.py` applies a prepared fix and is approved separately.
 - `docs/SNOWBOTS_DEMO.md`: integration setup, demo sequence and acceptance gates.
 - `tests/`: regression tests exercising Python bodies from the deployment SQL.
 - `docs/V2_VALIDATION.md`: validation history.

@@ -16,7 +16,7 @@ all eight categories give 16 × rigor + 1, evenly spaced: 17, 33, 49, 65, 81
 for rigor 1–5. Each category gets `2 * rigor` cases. Rigor is capped at 5 so the
 largest all-category scan (80 security cases) stays under the self-imposed
 100-case guardrail, which bounds the one-hour worker timeout, single-call case
-generation budget, and cost. The cap is AgentShield code, not a CoCo or Snowflake
+generation budget, and cost. The cap is Shield Bot code, not a CoCo or Snowflake
 limit. `options` returns `rigor_choices_all_categories`.
 
 Stable custom-category numbers:

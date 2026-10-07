@@ -1,4 +1,4 @@
--- AgentShield v2: sandbox discovery and real-agent evaluation.
+-- Shield Bot v2: sandbox discovery and real-agent evaluation.
 -- Run after 02_core.sql using the sandbox connection. No agent/grant changes.
 USE ROLE ACCOUNTADMIN;
 USE WAREHOUSE AGENTSHIELD_WH;

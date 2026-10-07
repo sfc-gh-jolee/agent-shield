@@ -29,7 +29,7 @@ def render(summary, surface, proposal, comparison=None):
     sections = [('results', 'Observed results'), ('surface', 'Attack surface'),
                 ('remediation', 'Remediation preview'), ('retest', 'Exact-case retest'), ('faq', 'Reading this report')]
     metadata = {'generated': summary.get('updated_at', summary.get('created_at', 'Unknown')),
-                'intent': 'AgentShield sandbox campaign evidence summary', 'campaign_id': summary['campaign_id'],
+                'intent': 'Shield Bot sandbox campaign evidence summary', 'campaign_id': summary['campaign_id'],
                 'dataSources': [{'type': 'table', 'name': 'AGENTSHIELD_DB.CORE.CAMPAIGNS'},
                                 {'type': 'table', 'name': 'AGENTSHIELD_DB.CORE.CAMPAIGN_CASES'}],
                 'sections': [{'id': key, 'title': title, 'producerNotes': 'Saved metadata only; rebuild from campaign state.'}
@@ -116,6 +116,6 @@ def render(summary, surface, proposal, comparison=None):
         '<p>Summary ordering: ' + text(summary.get('summarizer_status', 'AGENT_VALIDATED' if summary.get('summarizer_run_id') else 'Not recorded')) +
         '; remediation selection: ' + text(proposal.get('agent_status', 'AGENT_VALIDATED' if proposal.get('agent_run_id') else 'Not recorded')) +
         '.</p></details>'))
-    body.append('<footer class="bottom"><span>AgentShield / Sandbox evidence report</span>'
+    body.append('<footer class="bottom"><span>Shield Bot / Sandbox evidence report</span>'
                 '<span>HTML Report Formatter / Offline-ready / No automatic fixes</span></footer>')
     return kit.page(metadata, ''.join(body))

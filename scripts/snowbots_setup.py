@@ -1,4 +1,4 @@
-"""Create or update the AgentShield SnowBot through the SnowBots HTTP API.
+"""Create or update the Shield Bot SnowBot through the SnowBots HTTP API.
 
 Does not edit the SnowBots repo. Refuses any permission mode other than ask,
 because the ask-mode "Allow once" click is the human approval for fixes.
@@ -16,7 +16,7 @@ DEFINITION = ROOT / 'snowbots' / 'agentshield-bot.json'
 
 def bot_payload(definition, connection, account, workspace):
     if definition.get('permissionMode') != 'ask':
-        raise ValueError('AgentShield bot must use permissionMode ask')
+        raise ValueError('Shield Bot bot must use permissionMode ask')
     for name, value in (('connection', connection), ('account', account)):
         if not value or any(char in value for char in ' \'"`$;&|<>\n'):
             raise ValueError('Unsafe or empty ' + name)

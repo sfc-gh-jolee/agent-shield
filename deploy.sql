@@ -1,5 +1,5 @@
 -- ============================================================================
--- AgentShield MVP — One-click deployment (idempotent, safe to re-run)
+-- Shield Bot MVP — One-click deployment (idempotent, safe to re-run)
 -- Automated red-teaming & security posture management for Cortex Agents
 -- ============================================================================
 
@@ -804,7 +804,7 @@ $$;
 -- ============================================================================
 
 CREATE AGENT IF NOT EXISTS AGENTSHIELD_DB.PUBLIC.AGENTSHIELD
-  COMMENT = 'AgentShield MVP — Automated red-teaming and security posture management for Cortex Agents';
+  COMMENT = 'Shield Bot MVP — Automated red-teaming and security posture management for Cortex Agents';
 
 
 -- ============================================================================

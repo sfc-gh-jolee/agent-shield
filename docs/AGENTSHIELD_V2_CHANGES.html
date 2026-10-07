@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="snowflake-source" content="cortex-agent-authored">
-<title>AgentShield v2 - What changed and why</title>
+<title>Shield Bot v2 - What changed and why</title>
 <script type="application/json" id="snowflake-report-metadata">
 {"generated":"2026-10-06","intent":"Explain the original-to-v2 changes and the new Snowflake-hosted multi-agent campaign demo.","dataSources":[{"type":"file","path":"deploy.sql","revision":"613ebdf"},{"type":"file","path":"deploy/03_procs.sql"},{"type":"file","path":"deploy/03b_surface_scores.sql"},{"type":"file","path":"src/agentshield_campaigns.py"},{"type":"file","path":"src/agentshield_report.py"},{"type":"file","path":"scripts/build_campaigns.py"},{"type":"file","path":"docs/V2_VALIDATION.md"}],"sections":[{"id":"summary","producerNotes":"Model simulation versus actual agent execution."},{"id":"flow","producerNotes":"Legacy v2 test execution."},{"id":"campaigns","producerNotes":"Campaign architecture; apply disabled and SnowBots rehearsal outstanding."},{"id":"changes","producerNotes":"Inspected original implementation comparison."},{"id":"example","producerNotes":"Historical synthetic validation, not exhaustive coverage."},{"id":"scoring","producerNotes":"Legacy scoring remains outside the campaign demo."},{"id":"status","producerNotes":"Distinguish deployed functionality and remaining gates."},{"id":"files","producerNotes":"Use incremental campaign runbook for current deployment."}]}
 </script>
@@ -15,7 +15,7 @@
 </head>
 <body><main>
 <header><div class="eyebrow">Engineering change guide / 6 October 2026</div>
-<h1>AgentShield v2<br>From simulated answers to observed behavior.</h1>
+<h1>Shield Bot v2<br>From simulated answers to observed behavior.</h1>
 <p class="lede">The fork preserves the original idea: test an agent before giving it to users. The main change is making those tests exercise the real agent, under a chosen role, and keeping evidence of what actually happened.</p>
 <p class="small">Original baseline: <code>613ebdf</code>. First v2 checkpoint: <code>88469dc</code>. Updated with the multi-agent campaign architecture; one-click apply is not enabled.</p>
 <p><a href="https://github.com/sfc-gh-jolee/agent-shield/tree/v2-real-agent-redteam">Our working fork and branch</a> &middot; <a href="https://github.com/sfc-gh-sochandra/agent-shield/tree/613ebdf">Original baseline</a></p></header>

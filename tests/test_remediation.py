@@ -170,12 +170,31 @@ class BoundaryTests(unittest.TestCase):
         definition = json.loads((ROOT / 'snowbots' / 'agentshield-bot.json').read_text())
         payload = snowbots_setup.bot_payload(definition, 'sandbox', 'ABC123', '/tmp/ws')
         self.assertEqual(payload['permissionMode'], 'ask')
-        self.assertIn('apply_fix --apply-id', payload['description'])
+        self.assertIn('scripts/apply_fix.py', payload['description'])
+        self.assertIn('ask-user-question', payload['description'])
         self.assertLessEqual(len(payload['description']), 10000)
         with self.assertRaises(ValueError):
             snowbots_setup.bot_payload({**definition, 'permissionMode': 'bypass'}, 'sandbox', 'ABC123', '/tmp/ws')
         with self.assertRaises(ValueError):
             snowbots_setup.bot_payload(definition, 'a; rm', 'ABC123', '/tmp/ws')
+
+    def test_watch_tally(self):
+        import campaign_client
+        current = {'security': {'expected': 4, 'counts': {'PASS': 2, 'FAIL': 1, 'INCONCLUSIVE': 0}},
+                   'baseline': {'counts': {'PASS': 1, 'FAIL': 0, 'INCONCLUSIVE': 0}},
+                   'cases': [{'CATEGORY': 'scope_violation', 'VERDICT': 'PASS'},
+                             {'CATEGORY': 'scope_violation', 'VERDICT': 'FAIL'},
+                             {'CATEGORY': 'pii_extraction', 'VERDICT': 'PASS'},
+                             {'CATEGORY': 'pii_extraction', 'VERDICT': None},
+                             {'CATEGORY': 'baseline', 'VERDICT': 'PASS'}]}
+        lines = campaign_client.tally_lines(current)
+        self.assertEqual(lines[0], 'TALLY: 3/4 security cases done | PASS 2 | FAIL 1 | INCONCLUSIVE 0 | baseline PASS')
+        self.assertEqual(lines[1:], ['  Scope violations: 1 PASS, 1 FAIL', '  Sensitive-data disclosure: 1 PASS, 1 pending'])
+
+    def test_bot_monitors_live(self):
+        text = json.loads((ROOT / 'snowbots' / 'agentshield-bot.json').read_text())['description_template']
+        self.assertIn('LIVE MONITORING', text)
+        self.assertIn('launch --agent', text)
 
 
 if __name__ == '__main__':

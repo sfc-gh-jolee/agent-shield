@@ -1,8 +1,9 @@
 """Explicit-account client for SnowBots or a terminal.
 
 Fix actions: prepare_fix / prepare_rollback mint a one-time token that is written to
-a private local file and never printed; apply_fix consumes it. In SnowBots, run
-apply_fix only as its own command so the ask-mode "Allow once" click gates it.
+a private local file and never printed; they change nothing. Applying is done only by
+the separate scripts/apply_fix.py, so an "Always allow" grant for this read-only
+client in SnowBots never covers applying a fix.
 """
 import argparse
 import json
@@ -11,8 +12,18 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
+import uuid
 
 TOKENS = Path(__file__).resolve().parents[1] / 'build' / 'fix_tokens'
+WATCH = Path(__file__).resolve().parents[1] / 'build' / 'watch'
+TERMINAL = ('COMPLETE', 'PARTIAL', 'FAILED', 'CANCELLED')
+LABELS = {'prompt_injection': 'Instruction manipulation', 'scope_violation': 'Scope violations',
+          'pii_extraction': 'Sensitive-data disclosure', 'social_engineering': 'Social engineering',
+          'multi_turn': 'Multi-turn attacks', 'data_exfiltration': 'Data exfiltration',
+          'role_escalation': 'Privilege escalation', 'indirect_injection': 'Malicious instructions in documents',
+          'baseline': 'Baseline (normal question)'}
+AGENTS = {'safe': 'SAFE_SALES_AGENT', 'leaky': 'LEAKY_SALES_AGENT', 'hr': 'HR_TOOLKIT_AGENT'}
 
 
 def literal(value):
@@ -23,8 +34,11 @@ def sql(connection, statement):
     result = subprocess.run(['snow', 'sql', '-c', connection, '--format', 'json', '-q', statement],
                             capture_output=True, text=True, check=False)
     if result.returncode:
-        # SQL errors can echo raw requests. Keep stderr out of the chat.
-        raise RuntimeError('SNOWFLAKE_COMMAND_FAILED: inspect the CLI locally; output suppressed')
+        # SQL errors can echo raw requests. Keep stderr out of the chat; surface only
+        # the procedure's own upper-case reason code (e.g. CAMPAIGN_BUSY).
+        code = re.search(r'(?:ValueError|RuntimeError): ([A-Z][A-Z_]{2,79})\b', result.stderr + result.stdout)
+        raise RuntimeError((code.group(1) if code else 'SNOWFLAKE_COMMAND_FAILED') +
+                           ': details suppressed; inspect the CLI locally if needed')
     value = json.loads(result.stdout)
     if value and isinstance(value[0], list):
         value = value[-1]
@@ -49,16 +63,93 @@ def load_token(apply_id):
     return saved
 
 
+def api(connection, action, request):
+    response = sql(connection, 'USE WAREHOUSE AGENTSHIELD_WH; CALL AGENTSHIELD_DB.ORCH.CAMPAIGN_API(' +
+                   literal(action) + ', ' + literal(json.dumps(request)) + ')')
+    value = next(iter(response[0].values()))
+    return json.loads(value) if isinstance(value, str) else value
+
+
+def launch(connection, agent, rigor, categories):
+    """Submit and start directly; same validation as the orchestrator path, no model call."""
+    if agent not in AGENTS:
+        raise ValueError('--agent must be safe, leaky or hr')
+    active = sql(connection, 'SELECT CAMPAIGN_ID, STATUS FROM AGENTSHIELD_DB.CORE.CAMPAIGNS '
+                 "WHERE STATUS NOT IN ('COMPLETE','PARTIAL','FAILED','CANCELLED')")
+    if active:
+        return {'status': 'BUSY', 'active_campaign_id': active[0]['CAMPAIGN_ID'],
+                'active_status': active[0]['STATUS'],
+                'note': 'Only one scan runs at a time. Watch the active scan, or cancel it and launch again.'}
+    available = [item['CATEGORY'] for item in api(connection, 'options', {})['categories']]
+    chosen = available if categories in (None, '', 'all') else [item.strip() for item in categories.split(',')]
+    submitted = api(connection, 'submit', {'target': 'AGENTSHIELD_DEMO.AGENTS.' + AGENTS[agent], 'role': 'RT_SALES_REP',
+                                           'categories': chosen, 'rigor': rigor,
+                                           'request_key': 'sb-' + uuid.uuid4().hex})
+    started = api(connection, 'start', {'campaign_id': submitted['campaign_id']})
+    return {'campaign_id': submitted['campaign_id'], 'status': started['status'], 'agent': agent, 'rigor': rigor,
+            'categories': [LABELS.get(item, item) for item in chosen],
+            'security_cases': submitted.get('expected_security_cases'), 'baseline_cases': 1}
+
+
+def tally_lines(current):
+    security, baseline = current['security'], current['baseline']['counts']
+    counts = security['counts']
+    done = counts['PASS'] + counts['FAIL'] + counts['INCONCLUSIVE']
+    lines = ['TALLY: ' + str(done) + '/' + str(security['expected']) + ' security cases done | PASS ' +
+             str(counts['PASS']) + ' | FAIL ' + str(counts['FAIL']) + ' | INCONCLUSIVE ' + str(counts['INCONCLUSIVE']) +
+             ' | baseline ' + next((name for name in ('PASS', 'FAIL', 'INCONCLUSIVE') if baseline[name]), 'pending')]
+    per = {}
+    for case in current['cases']:
+        if case['CATEGORY'] != 'baseline':
+            row = per.setdefault(case['CATEGORY'], {'PASS': 0, 'FAIL': 0, 'INCONCLUSIVE': 0, 'pending': 0})
+            row[case['VERDICT'] if case['VERDICT'] in row else 'pending'] += 1
+    for category, row in sorted(per.items(), key=lambda item: LABELS.get(item[0], item[0])):
+        lines.append('  ' + LABELS.get(category, category) + ': ' + ', '.join(
+            str(value) + ' ' + key for key, value in row.items() if value))
+    return lines
+
+
+def watch(connection, campaign_id, max_seconds, interval):
+    """Print newly finished cases and a running tally until terminal or max_seconds."""
+    if not re.fullmatch(r'[0-9a-f-]{36}', campaign_id or ''):
+        raise ValueError('--campaign-id must be a full campaign ID')
+    WATCH.mkdir(parents=True, exist_ok=True)
+    seen_path = WATCH / (campaign_id + '.json')
+    seen = set(json.loads(seen_path.read_text())) if seen_path.exists() else set()
+    deadline = time.monotonic() + max_seconds
+    while True:
+        current = api(connection, 'status', {'campaign_id': campaign_id})
+        for case in current['cases']:
+            if case['VERDICT'] and case['CASE_ID'] not in seen:
+                seen.add(case['CASE_ID'])
+                print('CASE ' + case['VERDICT'] + ' | ' + LABELS.get(case['CATEGORY'], case['CATEGORY']) +
+                      ('' if case['VERDICT'] == 'PASS' else ' | ' + str(case['REASON'] or '')), flush=True)
+        seen_path.write_text(json.dumps(sorted(seen)))
+        terminal = current['status'] in TERMINAL
+        if terminal or time.monotonic() + interval > deadline:
+            break
+        time.sleep(interval)
+    running = sum(case['STATE'] == 'RUNNING' for case in current['cases'])
+    print('STATUS: ' + current['status'] + (' | ' + str(running) + ' case(s) running now' if running else ''))
+    print('\n'.join(tally_lines(current)))
+    print('NEXT: ' + ('campaign finished; fetch report_summary and the report' if terminal
+                      else 'still running; run watch again'))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--connection', required=True)
     parser.add_argument('--expected-account', required=True, help='CURRENT_ACCOUNT() locator, not a guessed connection label')
     parser.add_argument('action', choices=['options', 'submit', 'start', 'status', 'report', 'report_summary', 'retest', 'cancel', 'chat',
-                                           'prepare_fix', 'prepare_rollback', 'apply_fix'])
+                                           'prepare_fix', 'prepare_rollback', 'launch', 'watch'])
+    parser.add_argument('--agent', help='launch: safe, leaky or hr')
+    parser.add_argument('--rigor', type=int, help='launch: 1 to 5')
+    parser.add_argument('--categories', help='launch: all (default) or comma-separated category IDs')
+    parser.add_argument('--max-seconds', type=int, default=240, help='watch: stop polling after this long')
+    parser.add_argument('--interval', type=int, default=20, help='watch: seconds between polls')
     parser.add_argument('--request', default='{}', help='JSON request object; never credentials')
     parser.add_argument('--campaign-id', help='Campaign to fix (prepare_fix)')
-    parser.add_argument('--apply-id', help='Prepared apply_id (apply_fix, prepare_rollback)')
-    parser.add_argument('--receipt', default='', help='Front-end approval reference, recorded as evidence')
+    parser.add_argument('--apply-id', help='Prepared apply_id (prepare_rollback)')
     parser.add_argument('--output', type=Path, help='New local HTML file for report download')
     parser.add_argument('--overwrite', action='store_true', help='Explicitly replace an existing HTML export')
     parser.add_argument('--message', help='Orchestrator request (chat only)')
@@ -66,6 +157,12 @@ def main():
     identity = sql(args.connection, 'SELECT CURRENT_ACCOUNT() AS ACCOUNT')[0]['ACCOUNT']
     if identity.upper() != args.expected_account.upper():
         raise RuntimeError('ACCOUNT_MISMATCH: no campaign call made')
+    if args.action == 'launch':
+        print(json.dumps(launch(args.connection, args.agent, args.rigor, args.categories), indent=2))
+        return
+    if args.action == 'watch':
+        watch(args.connection, args.campaign_id, max(20, min(args.max_seconds, 600)), max(5, args.interval))
+        return
     if args.action == 'chat':
         if not args.message:
             raise ValueError('--message required')
@@ -75,10 +172,6 @@ def main():
         statement = 'CALL AGENTSHIELD_DB.ORCH.PREPARE_REMEDIATION(' + literal(args.campaign_id or '') + ')'
     elif args.action == 'prepare_rollback':
         statement = 'CALL AGENTSHIELD_DB.ORCH.PREPARE_ROLLBACK(' + literal(args.apply_id or '') + ')'
-    elif args.action == 'apply_fix':
-        saved = load_token(args.apply_id)
-        statement = ('CALL AGENTSHIELD_DB.ORCH.APPLY_REMEDIATION(' + ', '.join(literal(saved[key]) for key in (
-            'apply_id', 'proposal_hash', 'confirm_token')) + ', ' + literal(args.receipt) + ')')
     else:
         request = json.loads(args.request)
         if not isinstance(request, dict):

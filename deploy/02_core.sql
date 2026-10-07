@@ -1,5 +1,5 @@
 -- ============================================================================
--- AgentShield v2 -- Core objects (idempotent)
+-- Shield Bot v2 -- Core objects (idempotent)
 -- Tables, persona registry, persona runner procedures, attack library.
 -- Run as ACCOUNTADMIN after 01_demo_fixtures.sql (or against your own agents).
 -- ============================================================================

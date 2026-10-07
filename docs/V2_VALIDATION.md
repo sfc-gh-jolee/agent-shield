@@ -1,4 +1,4 @@
-# AgentShield v2 validation log
+# Shield Bot v2 validation log
 
 ## 2026-10-06: discovery and execution milestone
 
@@ -155,6 +155,6 @@ port during this checkpoint. No SnowBots source files modified.
   Instruction-only update applied mid-campaign without touching worker code.
 - That campaign was started from CoWork, the first chat-initiated campaign; its
   final results were not yet available at this checkpoint.
-- All 52 offline tests pass. The 100-case cap is AgentShield's own guardrail
+- All 52 offline tests pass. The 100-case cap is Shield Bot's own guardrail
   for worker timeout, single-call generation budget and cost, not a CoCo or
   Snowflake limit.
