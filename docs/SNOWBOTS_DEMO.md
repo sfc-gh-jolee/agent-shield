@@ -1,18 +1,41 @@
 # SnowBots campaign demo
 
-## Current safety gate
+SnowBots is the user access point (CoWork / Snowflake Intelligence is legacy).
 
-**Remediation is preview-only. There is no apply procedure or apply client command.**
-The existing SnowBots source has permission cards, argument-bound grants and an
-always-ask keyword list, but a generic stored-procedure CALL is not inherently a
-human-approval boundary. Both an agent and a human can use the same database role.
-An `approved=true` argument or a suggestive procedure name would not solve that.
-Do not enable fixes until actual allow-once, deny, cached-grant and bypass-mode
-behavior has been verified with an independently authorized apply identity.
+## Remediation approval gate
 
-No SnowBots source changes are required for the testing/reporting setup below.
-The end-to-end SnowBots rehearsal is a separate acceptance gate; SQL validation
-alone does not establish it works in the messenger.
+One allowlisted fix exists: `REMOVE_EMPLOYEE_LOOKUP` on
+`AGENTSHIELD_DEMO.AGENTS.LEAKY_SALES_AGENT`. It is applied only through
+`ORCH.PREPARE_REMEDIATION` -> `ORCH.APPLY_REMEDIATION`, which are separate from
+`CAMPAIGN_API` and absent from the orchestrator agent's tools. The orchestrator can
+only *offer* the fix and hand back `APPLY_REQUESTED campaign_id=<id>`.
+
+The approval is two-part:
+
+1. **Human click (SnowBots).** The bot runs in `ask` mode and executes
+   `campaign_client.py apply_fix` as its own shell command, so SnowBots shows an
+   Allow once / Deny card and records a durable receipt (turn, argument fingerprint).
+2. **Snowflake binding.** `prepare_fix` mints a one-time token (15 min, stored only as
+   a hash; the client writes it to a 0600 file under `build/fix_tokens/` and never
+   prints it). `APPLY_REMEDIATION` consumes it under the campaign mutex and checks
+   the pinned account, allowlisted target, exact proposal hash, unchanged live target
+   hash, no active campaign and no prior apply. A click can only execute what was prepared.
+
+Apply uses `ALTER AGENT ... MODIFY LIVE VERSION SET SPECIFICATION`, so existing
+grants are kept; it verifies the tool is gone, auto-restores on verification
+failure, records SPEC_BEFORE/AFTER in `CORE.REMEDIATION_APPLIES`, then submits and
+starts the exact retest. Rollback (`prepare_rollback` + `apply_fix`) needs its own
+approval and restores the saved spec byte-for-byte (hash checked).
+
+**Known limits.** SnowBots receipts do not record *which human* clicked: anyone
+holding the SnowBots connection/token can approve. Snowflake records the database
+user and the client receipt string as evidence, not as authentication. Granting
+"Always allow" for the shell tool would remove the click; the bot is instructed
+never to request it, but that is a bot instruction, not an enforced control. The
+one-time token still prevents replay. This is a sandbox demo boundary, not a
+production change-approval system.
+
+No SnowBots source changes are required.
 
 ## Deploy (existing v2 sandbox)
 
@@ -29,6 +52,7 @@ snow sql -c <sandbox_connection> -f build/campaigns/expand_templates.sql
 snow sql -c <sandbox_connection> -f build/campaigns/deploy_campaigns.sql
 snow sql -c <sandbox_connection> -f build/campaigns/deploy_agents.sql
 snow sql -c <sandbox_connection> -f deploy/05_campaign_tasks.sql
+snow sql -c <sandbox_connection> -f deploy/06_remediation.sql   # pins CURRENT_ACCOUNT() for apply
 ```
 
 The build extracts the existing evaluation implementation from `03_procs.sql`,
@@ -45,25 +69,18 @@ incur charges. Rigor controls case count, not a guarantee of attack quality.
 
 ## Configure the SnowBot
 
-Create a bot with the CoCo brain and select the sandbox connection. Confirm the
-actual account locator using SQL; do not rely only on the sidebar label. Use
-Ask permission mode. Do not paste credentials into the description or export.
+The bot definition lives in `snowbots/agentshield-bot.json` (CoCo brain, `ask`
+mode). With the SnowBots server running locally:
 
-Suggested instructions (replace local path/connection/account placeholders):
+```bash
+python3 scripts/snowbots_setup.py --connection <sandbox_connection> --expected-account <locator>
+```
 
-> You are the AgentShield demo front end. Specialist agents run in Snowflake.
-> Use the local `scripts/campaign_client.py` with the explicitly configured
-> sandbox connection and expected account locator. Use `chat` to reach
-> `AGENTSHIELD_DB.ORCH.AGENTSHIELD`; relay its questions about target, categories,
-> and rigor. Include already collected choices on subsequent chat calls (the
-> client starts a fresh orchestration conversation each time). Track the campaign
-> ID. Say results (or status) to read saved state; never resubmit a campaign to check progress.
-> Download a completed report using `report --output <new workspace file>.html`
-> and share it with the existing artifact_share tool. Confirm sharing succeeded
-> before saying the attachment is available. Report PASS/FAIL/INCONCLUSIVE and
-> static surface indicators, never raw records or prompts. Discovery and scoring
-> are outside this demo. Remediation is draft-only; no apply operation exists.
-> Never change the target, use other accounts, or run generated SQL as a fix.
+The script creates or updates bot `agentshield` via `POST/PATCH /bots`, fills the
+repo path, connection, account and workspace into the instructions, and refuses
+any mode other than `ask` (use `--dry-run` to inspect). In the SnowBots UI select
+the same sandbox connection for the CoCo brain. Never choose "Always allow" on the
+`apply_fix` command. Do not paste credentials into the description or export.
 
 CLI examples (each requires `--connection` and `--expected-account`):
 
@@ -72,6 +89,9 @@ python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> chat --message "Test the safe sales agent. Which categories and rigor levels are available?"
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> status --request '{"campaign_id":"<id>"}'
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> report --request '{"campaign_id":"<id>"}' --output reports/campaign.html
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> prepare_fix --campaign-id <id>
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> apply_fix --apply-id <apply_id> --receipt snowbots:<short_id>
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> prepare_rollback --apply-id <apply_id>
 ```
 
 The output directory must already exist. The report filename must be new unless
@@ -107,12 +127,16 @@ use `--overwrite` only when replacing the intended local report file.
    executions stay inconclusive. They never become implicit passes.
 3. Run the vulnerable target with the same scope. Generation may choose cases
    that do not expose the known flaw; do not promise a failure on every run.
-4. Show the allowlisted remediation preview if eligible. Make clear nothing was
-   changed and one-click execution is not yet enabled.
-5. `retest` with the original campaign ID and a new request key creates another
-   queued campaign using exact saved cases and a new baseline conversation.
-   Then call `start` with the returned campaign ID. This is not a claim that a
-   fix was applied; model output may vary with unchanged inputs.
+4. When the results are eligible the orchestrator asks whether to apply the fix.
+   On yes the bot runs `prepare_fix`, shows the diff (tool removed, tools kept,
+   short ID, expiry), then runs `apply_fix` as a separate command: click Allow
+   once to apply, or Deny to leave the agent unchanged.
+5. Apply automatically submits and starts the exact retest. Ask for results and
+   compare before/after. The fix only addresses EmployeeLookup failures; other
+   failures (e.g. bulk-export refusals) remain and are reported as manual review.
+6. Roll back with `prepare_rollback` + another approved `apply_fix` to restore
+   the vulnerable demo for the next run. A manual `retest` (original campaign ID,
+   new request key, then `start`) is still available.
 
 ## Recovery and constraints
 

@@ -135,7 +135,8 @@ def options(session):
             'cases_per_category': '2 * rigor', 'max_security_cases': 100,
             'default_persona': 'RT_SALES_REP', 'baseline_cases': 1,
             'simultaneous_campaigns': 1, 'category_concurrency': 2,
-            'remediation_apply_enabled': False}
+            # Apply is never a CAMPAIGN_API action; it needs a human-approved separate call.
+            'remediation_apply_enabled': False, 'remediation_apply_path': 'HUMAN_APPROVED_FRONT_END_ONLY'}
 
 
 def submit(session, request):
@@ -451,14 +452,14 @@ def remediation_preview(current, summary, surface):
                 any(item.get('tool') == 'EmployeeLookup' and item.get('code') == 'OWNER_RIGHTS_BOUNDARY'
                     for item in surface.get('findings', [])))
     recipe = 'REMOVE_EMPLOYEE_LOOKUP' if eligible else None
-    return {'status': 'DRAFT_APPROVAL_INTEGRATION_BLOCKED' if eligible else 'MANUAL_REVIEW',
+    return {'status': 'READY_FOR_APPROVAL' if eligible else 'MANUAL_REVIEW',
             'recipe_id': recipe, 'apply_enabled': False, 'target_hash': current['TARGET_HASH'],
             'proposal_hash': digest({'campaign': current['CAMPAIGN_ID'], 'hash': current['TARGET_HASH'], 'recipe': recipe}),
             'operation': 'Remove only EmployeeLookup from the saved agent tools and tool_resources.' if eligible else None,
             'impact': 'Employee lookup becomes unavailable through this agent; sales tools remain. '
                       'Requires fresh configuration check and baseline plus exact-case retest.' if eligible else
                       'No allowlisted automatic fix is established for these findings.',
-            'recovery': 'Saved TARGET_SPEC is retained for explicit administrator review; never automatically restore vulnerable settings.'}
+            'recovery': 'Saved TARGET_SPEC is retained; rollback needs its own human-approved prepare and apply.'}
 
 
 def report_bundle(session, current, summary):
@@ -554,9 +555,11 @@ def run(session, action, request_json):
                 'summary': decoded(current['SUMMARY']), 'proposal': decoded(current['PROPOSAL']),
                 'html': current['REPORT_HTML']}
     if action == 'report_summary':
+        from agentshield_remediation import history
         current = campaign(session, request['campaign_id'])
         return {'campaign_id': current['CAMPAIGN_ID'], 'status': current['STATUS'],
                 'summary': decoded(current['SUMMARY']), 'proposal': decoded(current['PROPOSAL']),
+                'remediation_history': history(session, current['CAMPAIGN_ID']),
                 'report_available': bool(current['REPORT_HTML'])}
     if action == 'retest':
         original = campaign(session, request['campaign_id'])

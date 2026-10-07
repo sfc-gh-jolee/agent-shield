@@ -65,7 +65,7 @@ class IntakeTests(unittest.TestCase):
         self.assertIn('ask for BOTH missing', instructions['orchestration'])
         self.assertIn('must NEVER call submit or start', instructions['orchestration'])
         self.assertIn('Never display template counts', instructions['orchestration'])
-        self.assertIn('two separate selectable questions', instructions['orchestration'])
+        self.assertIn('two numbered questions', instructions['orchestration'])
         self.assertIn('immediately call report_summary in the same turn', instructions['orchestration'])
 
 

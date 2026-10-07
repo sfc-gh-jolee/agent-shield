@@ -44,7 +44,7 @@ def render(summary, surface, proposal, comparison=None):
             ' recorded passes / ' + str(expected) + ' planned security cases. Baseline tracked separately.</p></aside></div>',
             '<div class="strip" aria-label="Report workflow">']
     for index, (key, label, owner) in enumerate((('results', 'Test', 'Category agents'), ('surface', 'Inspect', 'Surface mapper'),
-                                               ('remediation', 'Review', 'Preview only'), ('retest', 'Retest', 'Saved cases')), 1):
+                                               ('remediation', 'Review', 'Human approval'), ('retest', 'Retest', 'Saved cases')), 1):
         body.append('<a class="chip" href="#' + key + '"><span class="n">' + str(index) + '</span><span><b>' +
                     label + '</b><small>' + owner + '</small></span></a>')
     body.append('</div><div class="metaline"><span><b>Target</b> ' + text(request['target']) + '</span>'

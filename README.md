@@ -6,8 +6,10 @@ roles, retained evidence, and scan-specific scoring.
 **Status: working sandbox prototype, not production-ready or a security certification.**
 The revised demo uses a Snowflake orchestrator, category agents, durable workers,
 and saved HTML reports. Only the three synthetic demo agents are test targets.
-**Remediation is preview-only; one-click application and the live SnowBots
-rehearsal are not yet verified.** No fix/apply operation is exposed.
+SnowBots is the user access point (see `docs/SNOWBOTS_DEMO.md`). One allowlisted
+fix (remove EmployeeLookup from the leaky demo agent) can be applied after a
+SnowBots Allow-once click bound to a one-time Snowflake token, then retested and
+rolled back. The live SnowBots UI click rehearsal is not yet verified.
 
 ## Multi-agent demo
 
@@ -243,10 +245,12 @@ Still pending:
 - `deploy/03b_surface_scores.sql`: metadata mapping and saved-scan scoring.
 - `deploy/04_campaign_schema.sql`: additive campaign, job, and case-manifest tables.
 - `deploy/05_campaign_tasks.sql`: on-demand two-worker task graph and finalizer.
-- `src/agentshield_campaigns.py`: bounded campaigns, specialist calls, preview and exact retests.
+- `src/agentshield_campaigns.py`: bounded campaigns, specialist calls, fix proposals and exact retests.
+- `src/agentshield_remediation.py`: token-gated apply/rollback (never reachable from CAMPAIGN_API).
+- `snowbots/agentshield-bot.json`, `scripts/snowbots_setup.py`: SnowBot definition and local registration.
 - `src/agentshield_report.py`: escaped, self-contained evidence-summary HTML.
 - `scripts/build_campaigns.py`: packages shared evaluator and generates deployment SQL/agent specifications.
-- `scripts/campaign_client.py`: explicit-account client for SnowBots or terminal use; no apply command.
+- `scripts/campaign_client.py`: explicit-account client for SnowBots or terminal use; `apply_fix` keeps tokens out of chat.
 - `docs/SNOWBOTS_DEMO.md`: integration setup, demo sequence and acceptance gates.
 - `tests/`: regression tests exercising Python bodies from the deployment SQL.
 - `docs/V2_VALIDATION.md`: validation history.
