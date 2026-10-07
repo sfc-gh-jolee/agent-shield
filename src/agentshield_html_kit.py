@@ -62,7 +62,7 @@ def page(metadata, content):
             '<script type="application/json" id="snowflake-report-metadata">' + serialized + '</script>'
             '<style>' + CSS + '</style></head><body>'
             '<header class="topbar"><div class="wrap topinner"><a class="brand" href="#overview">'
-            '<span class="brand-mark" aria-hidden="true">AS</span> Shield Bot / Report</a>'
+            '<span class="brand-mark" aria-hidden="true">SB</span> Shield Bot / Report</a>'
             '<nav aria-label="Sections"><a href="#results">Results</a><a href="#surface">Surface</a>'
             '<a href="#remediation">Remediation</a><a href="#retest">Retest</a></nav>'
             '<div class="tools interactive"><button type="button" id="theme-button" aria-label="Switch to dark theme">Dark</button>'
@@ -73,7 +73,7 @@ def page(metadata, content):
 CSS = """
 :root{color-scheme:light;--bg:light-dark(#f8fafc,#0c1623);--surface:light-dark(#fff,#122132);--surface-2:light-dark(#f1f7fa,#16283a);--ink:light-dark(#142e48,#edf5ff);--muted:light-dark(#52677d,#a8bbcd);--line:light-dark(#d9e4ec,#304459);--blue:light-dark(#11567f,#60c7f0);--sf:#29b5e8;--blue-wash:light-dark(#eaf7fd,#142f44);--teal:light-dark(#06766d,#61d2bd);--teal-wash:light-dark(#edf9f6,#12332f);--amber:light-dark(#92600a,#f1c36f);--amber-wash:light-dark(#fff6e3,#342b1b);--violet:light-dark(#6856b5,#b9a8ff);--violet-wash:light-dark(#f3efff,#28243e);--grey:light-dark(#6f7f8c,#8a9cab);--grey-wash:light-dark(#eef1f4,#1c2a37)}
 *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:84px}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}a{color:var(--blue);text-underline-offset:3px}button{font:inherit;cursor:pointer;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:6px 12px}button:hover{border-color:var(--sf)}:focus-visible{outline:3px solid var(--sf);outline-offset:3px}
-.wrap{max-width:1200px;margin:auto;padding:0 clamp(18px,4vw,56px);min-width:0}.topbar{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--line)}.topinner{display:flex;align-items:center;gap:24px;min-height:64px}.brand{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:750;letter-spacing:.06em;white-space:nowrap;text-transform:uppercase;text-decoration:none;color:var(--ink)}.brand-mark{color:var(--blue);border:2px solid var(--sf);border-radius:8px;padding:4px}.tools{gap:7px;margin-left:auto}nav{display:flex;gap:20px;margin-left:auto}nav a{font-size:13px;text-decoration:none;color:var(--muted)}
+.wrap{max-width:1200px;margin:auto;padding:0 clamp(18px,4vw,56px);min-width:0}.topbar{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--line)}.topinner{display:flex;align-items:center;gap:24px;min-height:64px}.brand{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:750;letter-spacing:.06em;white-space:nowrap;text-transform:uppercase;text-decoration:none;color:var(--ink)}.brand-mark{color:var(--blue);border:2px solid var(--sf);border-radius:8px;padding:4px}.tools{gap:7px;margin-left:auto}nav{display:flex;align-items:center;margin-left:auto}nav a{position:relative;font-size:13px;font-weight:600;text-decoration:none;color:var(--muted);padding:6px 14px;border-radius:999px}nav a+a{margin-left:13px}nav a+a::before{content:"";position:absolute;left:-7px;top:22%;height:56%;border-left:1px solid var(--line);pointer-events:none}nav a:hover{color:var(--ink);background:var(--surface-2)}nav a[aria-current="true"]{color:var(--blue);background:var(--blue-wash)}
 .hero{padding:48px 0 28px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:40px;align-items:end}.eyebrow{font-size:11px;letter-spacing:.15em;text-transform:uppercase;font-weight:750;color:var(--blue);margin:0 0 14px}h1{font-size:clamp(32px,4.2vw,54px);line-height:1.08;letter-spacing:-.04em;margin:0 0 18px}h1 span{color:var(--sf)}.dek{font-size:17px;color:var(--muted);max-width:750px;margin:0}.heroaside{border-left:3px solid var(--sf);padding:4px 0 4px 20px}.heroaside strong{display:block;margin-top:12px;font-size:23px}.heroaside p{font-size:13px;color:var(--muted);margin-bottom:0}
 .strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-block:1px solid var(--line);padding:14px 0;gap:8px}.chip{display:flex;gap:10px;align-items:center;color:inherit;text-decoration:none;min-width:0;padding:8px}.chip .n{display:grid;place-items:center;border:3px solid var(--sf);background:var(--blue);color:var(--bg);border-radius:50%;width:38px;height:38px;flex-shrink:0;font-weight:800}.chip b,.chip small{display:block}.chip small{font-size:11px;color:var(--muted)}.metaline{display:flex;flex-wrap:wrap;gap:8px 26px;padding:18px 0;color:var(--muted);font-size:13px;overflow-wrap:anywhere}.metaline b{color:var(--ink)}
 .note,.risk{padding:14px 18px;border-radius:0 8px 8px 0;margin:0 0 12px;font-size:14px}.note{border-left:3px solid var(--sf);background:var(--blue-wash)}.risk{border-left:3px solid var(--amber);background:var(--amber-wash)}.section{padding:36px 0;border-bottom:1px solid var(--line);min-width:0}.sectionhead{display:flex;justify-content:space-between;gap:24px;align-items:baseline;margin-bottom:20px}.sectionhead h2{font-size:24px;line-height:1.25;margin:0;letter-spacing:-.02em}.sectionhead p{font-size:13px;color:var(--muted);margin:0;text-align:right}.sectionno{font-size:12px;color:var(--sf);margin-right:12px}
@@ -112,5 +112,19 @@ JS = """
     });
     document.getElementById('case-count').textContent = 'Showing ' + shown + ' of ' + rows.length + ' cases';
   }));
+  const links = Array.from(document.querySelectorAll('nav a[href^="#"]'));
+  const sections = links.map(link => document.getElementById(link.getAttribute('href').slice(1))).filter(Boolean);
+  const mark = () => {
+    let current = null;
+    const line = 140;
+    sections.forEach(section => { if (section.getBoundingClientRect().top <= line) current = section.id; });
+    if (sections.length && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = sections[sections.length - 1].id;
+    links.forEach(link => link.setAttribute('aria-current', String(link.getAttribute('href') === '#' + current)));
+  };
+  links.forEach(link => link.addEventListener('click', () => {
+    links.forEach(other => other.setAttribute('aria-current', String(other === link)));
+  }));
+  window.addEventListener('scroll', mark, { passive: true });
+  mark();
 })();
 """
