@@ -3,9 +3,42 @@
 Sandbox security testing for real Snowflake Cortex Agents, with explicit test
 roles, retained evidence, and scan-specific scoring.
 
-**Status: working prototype, not production-ready or a security certification.**
-The evaluator currently allows only the three synthetic demo agents. The v2
-CoWork-facing AgentShield agent is not yet implemented; use the stored procedures.
+**Status: working sandbox prototype, not production-ready or a security certification.**
+The revised demo uses a Snowflake orchestrator, category agents, durable workers,
+and saved HTML reports. Only the three synthetic demo agents are test targets.
+**Remediation is preview-only; one-click application and the live SnowBots
+rehearsal are not yet verified.** No fix/apply operation is exposed.
+
+## Multi-agent demo
+
+The orchestrator asks for categories and rigor (1–10). Each category gets
+`rigor` generated cases (1 per category per level), persisted before execution for exact retests.
+Two Snowflake task workers invoke category agents and the existing persona
+runner. The summarizer orders validated findings; a deterministic renderer
+produces the report. The remediation agent selects only an eligible reviewed
+recipe, never arbitrary SQL. Discovery and scores are outside this demo.
+
+One campaign runs at a time, with up to 100 security cases and a separate benign
+baseline. Uncertain or missing executions remain INCONCLUSIVE. The first live
+two-category safe-agent campaign completed with four security PASS results and
+a baseline PASS. These are small samples, not a security guarantee.
+
+See [SnowBots setup, deployment and demo runbook](docs/SNOWBOTS_DEMO.md) for the
+incremental build/deploy sequence, account-checked client, current approval
+blocker and recovery limitations. Existing procedure workflows below remain
+available for compatibility.
+
+Campaign exports use the pinned [HTML Report Formatter design](docs/HTML_FORMAT.md):
+light/dark themes, status KPIs, filterable case tables and print styles. Saved
+reports can be reformatted without rerunning agents; content remains readable
+when preview hosts disable scripts.
+
+For low-typing setup, say **"Set up a scan, don't start it yet."** The agent
+asks which target and which rigor level 1–10, evenly spaced: with all eight
+categories each level adds 8 cases, from 9 to 81 total including baseline.
+Nothing starts until you reply Start. The expanded library has **15 reference templates
+per security category**, plus one baseline; reference count is not run count.
+See [intake and reference-library details](docs/INTAKE_AND_TEMPLATES.md).
 
 - [Working branch](https://github.com/sfc-gh-jolee/agent-shield/tree/v2-real-agent-redteam)
 - [What changed from the original and why](docs/AGENTSHIELD_V2_CHANGES.html)
@@ -195,10 +228,9 @@ Current limits:
 
 Still pending:
 
-- Dry-run remediation suggestions and the fix/retest demonstration.
+- Verified SnowBots approval/denial integration and actual fix/retest demonstration.
 - Recursive cross-agent chain analysis beyond direct toolset edges.
-- Asynchronous scan worker and progress endpoint.
-- The v2 CoWork-facing AgentShield agent.
+- End-to-end SnowBots messenger rehearsal and reviewed bot export.
 - Broader test coverage and production hardening.
 
 ## Project files
@@ -207,6 +239,13 @@ Still pending:
 - `deploy/02_core.sql`: registries, templates, canaries, evidence tables, and runners.
 - `deploy/03_procs.sql`: discovery, live evaluation, parsing, and persistence.
 - `deploy/03b_surface_scores.sql`: metadata mapping and saved-scan scoring.
+- `deploy/04_campaign_schema.sql`: additive campaign, job, and case-manifest tables.
+- `deploy/05_campaign_tasks.sql`: on-demand two-worker task graph and finalizer.
+- `src/agentshield_campaigns.py`: bounded campaigns, specialist calls, preview and exact retests.
+- `src/agentshield_report.py`: escaped, self-contained evidence-summary HTML.
+- `scripts/build_campaigns.py`: packages shared evaluator and generates deployment SQL/agent specifications.
+- `scripts/campaign_client.py`: explicit-account client for SnowBots or terminal use; no apply command.
+- `docs/SNOWBOTS_DEMO.md`: integration setup, demo sequence and acceptance gates.
 - `tests/`: regression tests exercising Python bodies from the deployment SQL.
 - `docs/V2_VALIDATION.md`: validation history.
 - `docs/AGENTSHIELD_V2_CHANGES.html`: self-contained explanation of v1-to-v2 changes.

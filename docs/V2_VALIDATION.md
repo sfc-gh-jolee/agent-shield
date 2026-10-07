@@ -51,3 +51,93 @@ from this public log; raw evidence remains in the sandbox.
 - Added self-contained `AGENTSHIELD_V2_CHANGES.html`: reviewed in the browser;
   metadata anchors resolve, no external assets, 360px main layout does not spill
   outside its container (comparison table scrolls within its own wrapper).
+
+## 2026-10-06: multi-agent campaign checkpoint
+
+- Additive campaign tables, staged Python handlers, eight category agents,
+  orchestrator, summarizer and remediation selector deployed to the explicit
+  sandbox connection. Existing fixtures and three test-target agents unchanged.
+- On-demand root task, two parallel worker tasks and graph finalizer deployed.
+  Agent persona execution from a task verified. An initial smoke-task return
+  statement failed because a scripting variable lacked its colon; the persisted
+  case itself completed PASS. The campaign graph does not use that statement.
+- Two-category safe campaign at rigor 1: two independent category run IDs,
+  four security PASS cases plus a baseline PASS; complete expected manifest.
+- Repeated submission with the same request key returned the same campaign.
+- Exact retest: all five prompt hashes matched the parent manifest, no category
+  regeneration, all five cases PASS. Fresh target conversations were used.
+- A vulnerable-agent scope sample at rigor 1 produced two PASS security cases
+  plus baseline PASS. It did not expose the known lookup flaw; no remediation
+  eligibility or confirmed disclosure is claimed from that sample.
+- Orchestrator reached its custom tool and asked for categories and rigor before
+  submission, as requested. Tested through the account-checked CLI, not SnowBots.
+- HTML report persisted and downloaded locally; opened and visually reviewed.
+  Counts and raw-output exclusion tested. Report is offline, escaped and contains
+  no apply controls. Do not treat a desktop screenshot as a completed mobile test.
+- Summarizer/selector initially fell back to deterministic behavior on invalid
+  JSON output. Explicit output contracts and whitespace/fence parsing were fixed;
+  the next report refresh recorded validated specialist run IDs for both agents.
+- Snowpark binding an absent parent ID initially persisted the string `None`.
+  Changed to explicit `NULLIF` with an empty-string bind and repaired only the
+  initial campaign's parent references. Offline regressions cover this case.
+- Queued cancellation: finalizer stored CANCELLED with all three planned cases
+  INCONCLUSIVE/INCOMPLETE, zero attempts, and a saved HTML report. No target call.
+- All 36 offline tests pass; `git diff --check` passes. Coverage includes budget
+  and scope checks, generated case validation, missing evidence, transaction
+  rollback, idempotency conflicts, failure finalization, NULL binding, JSON
+  parsing, HTML escaping, preview gating and explicit client account routing.
+- Local report DOM check: metadata present, zero external assets/frames, body
+  scroll width 360px when its maximum width is constrained to 360px.
+
+Remaining gates: actual SnowBots chat/attachment rehearsal; authenticated
+allow-once/deny/replay/bypass approval; actual fix and post-fix behavior validation;
+concurrent/fault-injected admission and worker recovery. **No apply procedure is
+deployed** until the approval boundary is verified. The local server health
+endpoint responds, but the web development UI was not reachable on its documented
+port during this checkpoint. No SnowBots source files modified.
+
+## 2026-10-07: standardized campaign HTML exports
+
+- Adapted the requested `Snowflake-Solutions/us-west-agent-suite` formatter at
+  revision `10ca153ab8195528bb852a9a8268816119abe7d5`; provenance and safety
+  differences are documented in `HTML_FORMAT.md`.
+- Deployed the reusable kit, renderer and no-model rerender procedure after
+  checking the explicit sandbox account and zero active campaigns. Regenerated
+  the saved safe campaign report with `model_calls: 0`; no target changes.
+- Browser-verified light/dark toggle and case filters. Needs-review filter showed
+  zero of five cases for the all-pass sample; restored light theme and all rows.
+  Verified zero external assets and frames. At an effective 290px viewport,
+  document width stayed 290px with no overflow outside the table wrapper.
+- Offline coverage checks required sections, escaping, script-disabled content,
+  print rules, action-first ordering, separate baseline, contradictory totals,
+  duplicate IDs, no-model rerender and explicit local-export overwrite behavior.
+  All 43 tests pass; `git diff --check` passes.
+- Print behavior and script-disabled fallback are covered by structural tests;
+  actual print output and live SnowBots sanitization are not yet verified.
+  SnowBots rehearsal and approval/apply integration remain deferred.
+
+## 2026-10-07: concise intake and reference expansion
+
+- Explicit sandbox identity and zero active campaigns verified before deployment.
+  Added 65 references: final 121 unique IDs, 15 in each of eight security
+  categories, one baseline, six demo-only templates. All original 56 rows were
+  compared and unchanged; reapplication verified no changes or duplicates.
+- Removed template counts from deployed options; added friendly labels, stable
+  selection numbers, aliases and presets. Altered orchestrator instructions and
+  sample questions while preserving all other spec fields and grants.
+- Initial response instructions still produced inventory tables. Revised the
+  instruction examples and tested again: final options response used a coverage
+  paragraph without template counts/table; Standard setup reported 49 cases and
+  no execution. Numbered custom selection 2 and 8 at rigor 1 reported five cases.
+  Exact brevity remains model-dependent rather than a deterministic UI contract.
+- A quoted example initially failed agent-spec validation because the SQL string
+  lost JSON backslash escapes. Fixed the shared client SQL literal helper and
+  verified specification readback; added a regression for escape preservation.
+- Generation-only smoke test validated two indirect-injection cases, using one
+  expanded quoted-content reference and the existing playbook reference. No
+  test-target calls, saved cases, or campaigns created. Reference input sizes
+  including a 1,000-character reserve stayed below 11,000 for every category,
+  within the existing 45,000-character cap.
+- All 51 offline tests pass; whitespace checks pass. Zero new/active campaigns
+  after the live intake checks. This validates API behavior, not actual CoWork
+  widget rendering or a fully chat-started campaign. Existing HTML unchanged.
