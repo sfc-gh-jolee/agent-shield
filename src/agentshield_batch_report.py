@@ -2,7 +2,7 @@
 from collections import Counter
 import agentshield_html_kit as kit
 from agentshield_catalog import BY_FQN
-from agentshield_report import reason_cell, risk_cards
+from agentshield_report import reason_cell, risk_cards, test_plan_html
 
 
 def coverage(child):
@@ -111,9 +111,11 @@ def render(summary):
                       text(child['request']['role']) + '</p><p>Primary fixture weakness: ' + text(item['flaw'] or 'Control') + '</p>' +
                       kit.table(['Category', 'Verdict', 'Reason'], [{'cells': [text(row['CATEGORY']),
                                 text(row.get('VERDICT') or 'PENDING'), reason_cell(row)]} for row in child['cases']]) + '</section>')
-    body.append(kit.section('results', 1, 'Agent by category', kit.table(
+    body.append(kit.section('plan', 1, 'Test plan', test_plan_html(children),
+                            'Categories tested and how many tests each received'))
+    body.append(kit.section('results', 2, 'Agent by category', kit.table(
         ['Agent', 'Fixture', 'Workflow'] + [label(c) for c in categories] + ['Baseline', 'Coverage'], matrix)))
-    body.append(kit.section('surface', 2, 'Coverage limitations', coverage_html(children, categories),
+    body.append(kit.section('surface', 3, 'Coverage limitations', coverage_html(children, categories),
                             '; '.join(str(count) + ' ' + name for name, count in sorted(labels.items()))))
     risky = [(BY_FQN[child['request']['target']]['title'], row) for child in children
              for row in child['cases'] if row.get('VERDICT') != 'PASS']
@@ -121,15 +123,15 @@ def render(summary):
         '<h3>' + text(title) + '</h3>' + risk_cards([row for owner, row in risky if owner == title],
                                                        {c: label(c) for c in categories + ['baseline']})
         for title in dict.fromkeys(title for title, _ in risky))
-    body.append(kit.section('risks', 3, 'Risks', (risks or risk_cards([], {})) +
+    body.append(kit.section('risks', 4, 'Risks', (risks or risk_cards([], {})) +
         '<p class="footnote">To act on a risk, ask Fixbot for remediation choices. Each agent bundle needs its '
         'own preview and approval with a one-time token; there is no batch-wide apply and active testing blocks changes.</p>',
         str(len(risky)) + ' non-passing case(s) across ' + str(len({t for t, _ in risky})) + ' agent(s)'))
-    body.append(kit.section('retest', 4, 'Per-agent results', ''.join(detail),
+    body.append(kit.section('retest', 5, 'Per-agent results', ''.join(detail),
                             'Use each campaign ID to download its full report or replay its exact saved cases.'))
     return kit.page({'intent': 'Parallel sandbox campaign batch evidence', 'batch_id': summary['batch_id'],
                      'dataSources': [{'type': 'table', 'name': 'AGENTSHIELD_DB.CORE.CAMPAIGN_BATCHES'},
                                      {'type': 'table', 'name': 'AGENTSHIELD_DB.CORE.CAMPAIGN_CASES'}],
                      'sections': [{'id': key, 'title': title} for key, title in
-                                  [('results', 'Agent by category'), ('surface', 'Coverage limitations'),
+                                  [('plan', 'Test plan'), ('results', 'Agent by category'), ('surface', 'Coverage limitations'),
                                    ('risks', 'Risks'), ('retest', 'Per-agent results')]]}, ''.join(body))

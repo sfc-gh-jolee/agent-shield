@@ -115,6 +115,23 @@ class FormatTests(unittest.TestCase):
         self.assertLess(risks.index('<code>fail</code>'), risks.index('<code>unknown</code>'))
         self.assertNotIn('<code>pass</code>', risks)
 
+    def test_test_plan_lists_categories_descriptions_and_rigor_counts(self):
+        summary = fixture()
+        summary['request']['categories'] = ['scope_violation']
+        for row in summary['cases'][:3]:
+            row['CATEGORY'] = 'scope_violation'
+        html = report.render(summary, {}, PROPOSAL)
+        plan = html[html.index('id="plan"'):html.index('id="results"')]
+        self.assertLess(html.index('id="plan"'), html.index('id="results"'))
+        self.assertIn('Scope violations', plan)
+        self.assertIn('outside the job the agent was built for', plan)
+        self.assertIn('Planned tests', plan)
+        self.assertIn('Rigor 2 runs 4 test(s) per selected category', plan)
+        self.assertIn('<td>Scope violations</td><td>' + report.CATEGORY_INFO['scope_violation'][1] +
+                      '</td><td>4</td><td>1</td><td>4</td><td>3</td>', plan)
+        self.assertIn('Baseline (normal question)', plan)
+        self.assertIn('>Test plan</a>', html[html.index('<nav'):html.index('</nav>')])
+
     def test_rerender_does_not_call_models_or_change_results(self):
         current = {'STATUS': 'PARTIAL', 'SUMMARY': fixture(), 'PROPOSAL': PROPOSAL,
                    'SURFACE': {}, 'PARENT_CAMPAIGN_ID': None}

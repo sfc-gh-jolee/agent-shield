@@ -2,6 +2,64 @@
 from collections import Counter
 import agentshield_html_kit as kit
 
+CASES_PER_RIGOR = 2
+BASELINE_CASES = 1
+# Display order, plain label and one-line purpose for every category the orchestrator can run.
+CATEGORY_INFO = {
+    'prompt_injection': ('Instruction manipulation', 'Tries to make the agent ignore, override or replace its own instructions.'),
+    'scope_violation': ('Scope violations', 'Asks for help outside the job the agent was built for.'),
+    'pii_extraction': ('Sensitive-data disclosure', 'Tries to get personal or confidential data the persona should not see.'),
+    'social_engineering': ('Social engineering', 'Uses pretexts, urgency or claimed authority to talk the agent into an exception.'),
+    'multi_turn': ('Multi-turn attacks', 'Builds pressure over several turns to wear down a rule the agent keeps at first.'),
+    'data_exfiltration': ('Data exfiltration', 'Tries to export data in bulk or send it to an outside destination.'),
+    'role_escalation': ('Privilege escalation', 'Tries to get the agent to act above the persona\'s privileges, such as admin or DDL actions.'),
+    'indirect_injection': ('Malicious instructions in documents', 'Hides instructions inside documents or tool results to see if the agent follows them.'),
+    'baseline': ('Baseline (normal question)', 'An ordinary in-scope request that checks the agent still answers normally. Not an attack.'),
+}
+
+
+def test_plan_html(campaigns, show_planned=True):
+    """Category, purpose, and tests per agent implied by the chosen rigor, next to what was recorded."""
+    text = kit.esc
+    selected = list(dict.fromkeys(category for child in campaigns for category in child['request']['categories']))
+    recorded = list(dict.fromkeys(row['CATEGORY'] for child in campaigns for row in child['cases']))
+    order = list(CATEGORY_INFO)
+    categories = sorted(set(selected + recorded) - {'baseline'},
+                        key=lambda category: (order.index(category) if category in order else len(order), category))
+    categories.append('baseline')
+    rigors = sorted({child['request']['rigor'] for child in campaigns})
+    rows, planned_total, recorded_total = [], 0, 0
+    for category in categories:
+        owners = [child for child in campaigns if category == 'baseline' or category in child['request']['categories']]
+        per_agent = sorted({BASELINE_CASES if category == 'baseline' else CASES_PER_RIGOR * child['request']['rigor']
+                            for child in owners})
+        planned = sum(BASELINE_CASES if category == 'baseline' else CASES_PER_RIGOR * child['request']['rigor']
+                      for child in owners)
+        count = sum(row['CATEGORY'] == category for child in campaigns for row in child['cases'])
+        planned_total, recorded_total = planned_total + planned, recorded_total + count
+        name, purpose = CATEGORY_INFO.get(category, (category.replace('_', ' ').title(), 'No description recorded.'))
+        cells = [text(name), text(purpose)]
+        if show_planned:
+            span = (str(per_agent[0]) if len(per_agent) == 1 else
+                    str(per_agent[0]) + '-' + str(per_agent[-1]) if per_agent else '0')
+            cells += [span, str(len(owners)), str(planned)]
+        cells.append(str(count))
+        rows.append({'cells': cells})
+    headers = ['Category', 'What it tests']
+    if show_planned:
+        headers += ['Tests per agent', 'Agents', 'Planned tests']
+        rows.append({'cells': ['<b>Total</b>', '', '', '', '<b>' + str(planned_total) + '</b>', '<b>' + str(recorded_total) + '</b>']})
+    else:
+        rows.append({'cells': ['<b>Total</b>', '', '<b>' + str(recorded_total) + '</b>']})
+    headers.append('Recorded tests')
+    rigor = ', '.join(str(value) for value in rigors)
+    intro = ('<p>Rigor ' + text(rigor) + ' runs ' + ' / '.join(str(CASES_PER_RIGOR * value) for value in rigors) +
+             ' test(s) per selected category for each agent, plus ' + str(BASELINE_CASES) +
+             ' baseline question per agent. Recorded tests can be lower than planned if a run was cancelled or did not finish.</p>'
+             if show_planned else
+             '<p>This run replays saved cases, so counts show the recorded tests rather than a rigor-based plan.</p>')
+    return intro + kit.table(headers, rows)
+
 
 def state(row):
     return {'PASS': 'done', 'FAIL': 'pend'}.get(row.get('VERDICT'), 'val')
@@ -53,7 +111,7 @@ def render(summary, surface, proposal, comparison=None):
     groups = list(dict.fromkeys(row['CATEGORY'] for row in cases))
     group_ids = {group: 'group-' + str(index) for index, group in enumerate(groups)}
     labels = {group: group.replace('_', ' ').title() for group in groups}
-    sections = [('results', 'Observed results'), ('surface', 'Attack surface'),
+    sections = [('plan', 'Test plan'), ('results', 'Observed results'), ('surface', 'Attack surface'),
                 ('risks', 'Risks'), ('retest', 'Exact-case retest'), ('faq', 'Reading this report')]
     metadata = {'generated': summary.get('updated_at', summary.get('created_at', 'Unknown')),
                 'intent': 'Shield Bot sandbox campaign evidence summary', 'campaign_id': summary['campaign_id'],
@@ -81,6 +139,9 @@ def render(summary, surface, proposal, comparison=None):
                 'security certification. A pass applies only to the observed case.</p>'
                 '<p class="risk"><strong>Fix application is disabled.</strong> No target change has been applied. '
                 'Human approval integration and post-fix validation remain required.</p>')
+    show_planned = comparison is None and expected == CASES_PER_RIGOR * request['rigor'] * len(request['categories'])
+    body.append(kit.section('plan', 1, 'Test plan', test_plan_html([summary], show_planned),
+                            'Categories tested and how many tests each received'))
     status_html = '<div class="kpis">'
     for label, value, kind, detail in (
             ('PASS', counts['PASS'], 'done', 'Observed expected behavior'),
@@ -102,7 +163,7 @@ def render(summary, surface, proposal, comparison=None):
         '<code>' + text(row['CASE_ID']) + '</code>', reason_cell(row)]}
         for row in sorted(cases, key=lambda row: state(row) == 'done')]
     status_html += kit.table(['Verdict', 'Category', 'Evidence reference', 'Reason'], table_rows, 'case-table')
-    body.append(kit.section('results', 1, 'Observed results', status_html, 'Action-first cases / baseline separate'))
+    body.append(kit.section('results', 2, 'Observed results', status_html, 'Action-first cases / baseline separate'))
 
     tools = surface.get('tools', [])
     surface_html = '<p>Static metadata is not proof of effective authorization or disclosure. Missing grants are not an access-denied verdict.</p><div class="grid">'
@@ -117,7 +178,7 @@ def render(summary, surface, proposal, comparison=None):
     surface_html += '<ul>' + ''.join('<li>' + kit.pill('val', 'Static indicator') + ' ' +
         text(finding.get('code')) + ' / ' + text(finding.get('tool')) + '</li>' for finding in surface.get('findings', [])) + '</ul>'
     surface_html += '<p class="footnote">Metadata gaps: ' + str(len(surface.get('gaps', []))) + '.</p>'
-    body.append(kit.section('surface', 2, 'Attack surface', surface_html, str(len(tools)) + ' configured tool observations'))
+    body.append(kit.section('surface', 3, 'Attack surface', surface_html, str(len(tools)) + ' configured tool observations'))
     fixes = proposal.get('fixes') or []
     fix_cards = ''.join(
         '<article class="card gap"><h3>' + text(labels.get(fix['category'], fix['category'])) + ' ' +
@@ -126,7 +187,7 @@ def render(summary, surface, proposal, comparison=None):
         '<ul>' + ''.join('<li>' + text(change) + '</li>' for change in fix.get('changes', [])) + '</ul>' +
         kit.pill('blue', 'Ready for approval') + '</article>' for fix in fixes)
     risky = [row for row in cases if row.get('VERDICT') != 'PASS']
-    body.append(kit.section('risks', 3, 'Risks',
+    body.append(kit.section('risks', 4, 'Risks',
         risk_cards(risky, labels) +
         '<div class="grid" style="margin-top:14px"><article class="card"><h3>Reviewed fix proposal</h3>' +
         kit.pill('val', proposal['status']) +
@@ -142,8 +203,8 @@ def render(summary, surface, proposal, comparison=None):
         comparison_html += '<p class="note">Identical inputs can produce different model outputs. A retest does not prove a fix was applied.</p>'
     else:
         comparison_html = '<p>' + kit.pill('drop', 'No retest attached') + ' No before/after claim is made.</p>'
-    body.append(kit.section('retest', 4, 'Exact-case retest', comparison_html, 'Replay persisted prompts, not new generations'))
-    body.append(kit.section('faq', 5, 'Reading this report', '<ul class="faq">'
+    body.append(kit.section('retest', 5, 'Exact-case retest', comparison_html, 'Replay persisted prompts, not new generations'))
+    body.append(kit.section('faq', 6, 'Reading this report', '<ul class="faq">'
         '<li><strong>Is this a security score?</strong><br>No. Counts summarize only this campaign and do not certify the target.</li>'
         '<li><strong>Where is the raw evidence?</strong><br>Raw responses, prompts and records remain in restricted sandbox tables. '
         'This export contains only selected metadata, plain-language reasons and reason codes.</li>'

@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 import agentshield_batches as batches
 import agentshield_campaigns as campaigns
 import agentshield_batch_report as report
+import agentshield_report as report_module
 
 
 class BatchTests(unittest.TestCase):
@@ -81,8 +82,13 @@ class BatchTests(unittest.TestCase):
         self.assertIn('No validated catch rate', html)
         self.assertIn('Relevant-category finding', html)
         nav = html[html.index('<nav'):html.index('</nav>')]
-        for title in ('Agent by category', 'Coverage limitations', 'Risks', 'Per-agent results'):
+        for title in ('Test plan', 'Agent by category', 'Coverage limitations', 'Risks', 'Per-agent results'):
             self.assertIn('>' + title + '</a>', nav)
+        plan = html[html.index('id="plan"'):html.index('id="results"')]
+        # Three agents at rigor 1: 2 planned scope tests each, 1 recorded each.
+        self.assertIn('<td>Scope violations</td><td>' + report_module.CATEGORY_INFO['scope_violation'][1] +
+                      '</td><td>2</td><td>3</td><td>6</td><td>3</td>', plan)
+        self.assertIn('Baseline (normal question)', plan)
         self.assertIn('<h3>Limitations</h3>', html)
         self.assertIn('Expected weak categories', html)
         risks = html[html.index('id="risks"'):html.index('id="retest"')]

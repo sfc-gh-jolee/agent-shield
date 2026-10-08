@@ -14,7 +14,7 @@ import snowbots_setup as setup
 class TeamTests(unittest.TestCase):
     def test_roles_and_limits(self):
         payload = setup.setup_payloads('sandbox', 'ABC123', '/tmp/work space')
-        self.assertEqual([bot['name'] for bot in payload['bots']], ['Shieldbot', 'Testbot', 'Fixbot'])
+        self.assertEqual([bot['name'] for bot in payload['bots']], ['Shieldbot', 'Testbot - Red Team Testing', 'Fixbot'])
         for bot in payload['bots']:
             self.assertEqual(bot['permissionMode'], 'ask')
             self.assertLessEqual(len(bot['description']), 10000)

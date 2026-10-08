@@ -1,6 +1,6 @@
 {
   "id": "agentshield-test",
-  "name": "Testbot",
+  "name": "Testbot - Red Team Testing",
   "title": "Testing and verification",
   "harness": "cortex",
   "permissionMode": "ask",
