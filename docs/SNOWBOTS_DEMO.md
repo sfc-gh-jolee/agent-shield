@@ -4,8 +4,8 @@ SnowBots is the user access point (CoWork / Snowflake Intelligence is legacy).
 
 ## Remediation approval gate
 
-One allowlisted fix exists: `REMOVE_EMPLOYEE_LOOKUP` on
-`AGENTSHIELD_DEMO.AGENTS.LEAKY_SALES_AGENT`. It is applied only through
+Per-case fixes can remove a side tool or add a reviewed category guardrail on
+catalog targets. They are applied only through
 `ORCH.PREPARE_REMEDIATION` -> `ORCH.APPLY_REMEDIATION`, which are separate from
 `CAMPAIGN_API` and absent from the orchestrator agent's tools. The orchestrator can
 only *offer* the fix and hand back `APPLY_REQUESTED campaign_id=<id>`.
@@ -41,18 +41,22 @@ No SnowBots source changes are required.
 
 Use an explicit sandbox connection, never a shared production/Snowhouse default.
 This migration adds objects; it does not rerun fixtures or modify target agents.
-One active campaign is supported, with two task slots and 100 security cases max.
+One active campaign per target is supported, with four shared task slots and
+100 security cases maximum per child. A batch can contain all 25 targets, with
+at most 1,000 total cases including baselines.
 
 ```bash
 python3 -m unittest discover -s tests
 python3 scripts/build_campaigns.py
 python3 scripts/build_templates.py
 snow sql -c <sandbox_connection> -f deploy/04_campaign_schema.sql
+snow sql -c <sandbox_connection> -f deploy/08_campaign_batches.sql
 snow sql -c <sandbox_connection> -f build/campaigns/expand_templates.sql
 snow sql -c <sandbox_connection> -f build/campaigns/deploy_campaigns.sql
 snow sql -c <sandbox_connection> -f build/campaigns/deploy_agents.sql
 snow sql -c <sandbox_connection> -f deploy/05_campaign_tasks.sql
 snow sql -c <sandbox_connection> -f deploy/06_remediation.sql   # pins CURRENT_ACCOUNT() for apply
+python3 scripts/build_catalog.py --deploy --connection <sandbox_connection> --expected-account <locator>
 ```
 
 The build extracts the existing evaluation implementation from `03_procs.sql`,
@@ -91,7 +95,7 @@ different prefix, so it still prompts every time. The bot also labels that call
 list, the card hides "Always allow" and prompts even in bypass mode. Do not switch
 the bot to bypass mode: that would skip the approval click for fixes.
 
-Setup choices (agent, rigor 1-5, optional custom categories) are shown as
+Setup choices (multi-select agents/groups, rigor 1-5, optional custom categories) are shown as
 clickable SnowBots question cards through the CoCo ask-user-question tool. Rigor
 levels are shown without per-level case counts.
 
@@ -99,6 +103,11 @@ CLI examples (each requires `--connection` and `--expected-account`):
 
 ```bash
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> options
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> --list-agents
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> launch --agents safe,leaky,safe_hr --rigor 1 --categories scope_violation,pii_extraction
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> launch --group all --rigor 1 --categories scope_violation,pii_extraction
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> watch_batch --batch-id <id>
+python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> batch_report --batch-id <id> --output reports/batch.html
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> chat --message "Test the safe sales agent. Which categories and rigor levels are available?"
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> status --request '{"campaign_id":"<id>"}'
 python3 scripts/campaign_client.py --connection <sandbox_connection> --expected-account <locator> report --request '{"campaign_id":"<id>"}' --output reports/campaign.html
@@ -135,7 +144,7 @@ use `--overwrite` only when replacing the intended local report file.
 ## Rehearsal
 
 1. Start with rigor 1 and two categories against the safe demo target. Each
-   category has its own Cortex Agent invocation. Two workers run concurrently;
+   category has its own Cortex Agent invocation. Up to four workers run concurrently;
    cases within a category run sequentially. A separate benign baseline runs too.
 2. Show progress with saved manifest counts, then the report and tool boundaries.
    Reports distinguish static findings from runtime verdicts. Missing/failed

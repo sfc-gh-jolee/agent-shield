@@ -20,11 +20,11 @@ def bot_payload(definition, connection, account, workspace):
     for name, value in (('connection', connection), ('account', account)):
         if not value or any(char in value for char in ' \'"`$;&|<>\n'):
             raise ValueError('Unsafe or empty ' + name)
-    description = definition['description_template'].format(
+    description = (definition.get('batch_instructions', '') + '\n\n' + definition['description_template']).format(
         repo=ROOT, connection=connection, account=account, workspace=workspace)
     if len(description) > 10000:
         raise ValueError('Bot instructions exceed SnowBots 10,000 character cap')
-    payload = {key: value for key, value in definition.items() if key != 'description_template'}
+    payload = {key: value for key, value in definition.items() if key not in ('description_template', 'batch_instructions')}
     payload['description'] = description
     return payload
 

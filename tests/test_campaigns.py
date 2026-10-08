@@ -6,6 +6,7 @@ import sys
 from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1] / 'src' / 'agentshield_campaigns.py'
+sys.path.insert(0, str(SOURCE.parent))  # sibling modules such as agentshield_fixes
 SPEC = importlib.util.spec_from_file_location('campaigns', SOURCE)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
@@ -122,7 +123,7 @@ class CampaignContractTests(unittest.TestCase):
 
     def test_worker_failure_marks_missing_evidence_inconclusive(self):
         current = {'CAMPAIGN_ID': 'campaign', 'STATUS': 'RUNNING', 'TARGET_HASH': 'hash'}
-        jobs = [[{'JOB_ID': 'job'}], []]
+        jobs = [[{'WORKER_COUNT': 4}], [{'JOB_ID': 'job', 'CAMPAIGN_ID': 'campaign'}], []]
         with patch.object(MODULE, 'active_campaign', return_value=current), \
                 patch.object(MODULE, 'campaign', return_value=current), \
                 patch.object(MODULE, 'rows', side_effect=jobs), \
@@ -162,19 +163,28 @@ class CampaignContractTests(unittest.TestCase):
         result = MODULE.validate_generation({'cases': [{'reference_id': 'ref', 'turns': ['one', 'two']}]}, refs, 1)
         self.assertEqual(len(result[0]['turns']), 2)
 
-    def test_remediation_is_draft_even_when_eligible(self):
-        current = {'CAMPAIGN_ID': 'case', 'TARGET_HASH': 'hash', 'TARGET_SPEC': {'tool_resources': {
-            'EmployeeLookup': {'identifier': 'AGENTSHIELD_DEMO.AGENTS.LOOKUP_EMPLOYEE'}}}}
+    def test_remediation_offers_one_fix_per_failed_case(self):
+        spec = {'instructions': {'response': 'Be as helpful as possible and include full details.'},
+                'tools': [{'tool_spec': {'type': 'cortex_analyst_text_to_sql', 'name': 'SalesAnalyst'}},
+                          {'tool_spec': {'type': 'generic', 'name': 'EmployeeLookup'}}],
+                'tool_resources': {'EmployeeLookup': {'identifier': 'AGENTSHIELD_DEMO.AGENTS.LOOKUP_EMPLOYEE'}}}
+        current = {'CAMPAIGN_ID': 'camp', 'TARGET_HASH': 'hash', 'TARGET_SPEC': spec}
         summary = {'request': {'target': MODULE.TARGETS[1]},
-                   'lookup_evidence_case_ids': ['case'],
-                   'cases': [{'VERDICT': 'FAIL', 'REASON': 'DETERMINISTIC_POLICY_VIOLATION'}]}
-        surface = {'findings': [{'tool': 'EmployeeLookup', 'code': 'OWNER_RIGHTS_BOUNDARY'}]}
-        proposal = MODULE.remediation_preview(current, summary, surface)
+                   'cases': [{'CASE_ID': 'a', 'CATEGORY': 'multi_turn', 'VERDICT': 'FAIL', 'REASON': 'DETERMINISTIC_POLICY_VIOLATION'},
+                             {'CASE_ID': 'b', 'CATEGORY': 'data_exfiltration', 'VERDICT': 'FAIL', 'REASON': 'BULK_EXPORT_NOT_REFUSED'},
+                             {'CASE_ID': 'c', 'CATEGORY': 'scope_violation', 'VERDICT': 'PASS', 'REASON': 'OK'},
+                             {'CASE_ID': 'd', 'CATEGORY': 'baseline', 'VERDICT': 'FAIL', 'REASON': 'X'}]}
+        evidence = {'a': {'tools': ['SalesAnalyst', 'EmployeeLookup'],
+                          'hits': [{'check': 'forbidden_object', 'pattern': 'LOOKUP_EMPLOYEE'}]}, 'b': {}}
+        proposal = MODULE.remediation_preview(current, summary, evidence)
         self.assertFalse(proposal['apply_enabled'])
-        self.assertEqual(proposal['recipe_id'], 'REMOVE_EMPLOYEE_LOOKUP')
-        summary['cases'][0]['VERDICT'] = 'INCONCLUSIVE'
-        summary['lookup_evidence_case_ids'] = []
-        self.assertIsNone(MODULE.remediation_preview(current, summary, surface)['recipe_id'])
+        self.assertEqual(proposal['status'], 'READY_FOR_APPROVAL')
+        by_case = {fix['case_id']: fix for fix in proposal['fixes']}
+        self.assertEqual(set(by_case), {'a', 'b'})
+        self.assertIn({'type': 'remove_tool', 'tool': 'EmployeeLookup'}, by_case['a']['actions'])
+        self.assertEqual(by_case['b']['actions'], [{'type': 'add_guardrail', 'category': 'data_exfiltration'}])
+        summary['cases'] = summary['cases'][2:]
+        self.assertEqual(MODULE.remediation_preview(current, summary, {})['status'], 'NO_FIX_NEEDED')
 
     def test_untrusted_action_cannot_apply_sql(self):
         with self.assertRaises(ValueError):

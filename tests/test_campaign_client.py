@@ -39,6 +39,22 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(CLIENT.literal('quote: ' + chr(92) + chr(34)),
                          "'quote: " + chr(92) * 2 + chr(34) + "'")
 
+    def test_batch_launch_canonical_selection_and_retry_key(self):
+        def api(connection, action, request):
+            if action == 'options':
+                return {'categories': [{'CATEGORY': 'scope_violation'}]}
+            if action == 'submit_batch':
+                self.assertEqual(request['request_key'], 'stable-batch-key')
+                self.assertEqual(len(request['targets']), 8)
+                self.assertEqual(request['categories'], ['scope_violation'])
+                return {'batch_id': 'batch', 'total_cases': 24}
+            self.assertEqual(action, 'start_batch')
+            return {'status': 'DISPATCHED'}
+        with patch.object(CLIENT, 'api', side_effect=api), patch('builtins.print'):
+            result = CLIENT.launch_batch('sandbox', 'safe', ['safe'], 1, 'all', 'stable-batch-key')
+        self.assertEqual(result['batch_id'], 'batch')
+        self.assertEqual(len(result['agents']), 8)
+
     def test_report_overwrite_requires_explicit_flag(self):
         for overwrite, mode in ((False, 'x'), (True, 'w')):
             with self.subTest(overwrite=overwrite):

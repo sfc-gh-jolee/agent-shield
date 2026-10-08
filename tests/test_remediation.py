@@ -13,21 +13,25 @@ sys.path.insert(0, str(ROOT / 'src'))
 sys.path.insert(0, str(ROOT / 'scripts'))
 import agentshield_remediation as R  # noqa: E402
 import agentshield_campaigns as C  # noqa: E402
+import agentshield_fixes as F  # noqa: E402
 import build_campaigns  # noqa: E402
 import snowbots_setup  # noqa: E402
 
-SPEC = {'instructions': {'orchestration': 'sales'},
-        'tools': [{'tool_spec': {'type': 'generic', 'name': 'Sales'}},
+SPEC = {'instructions': {'orchestration': 'Use Sales for pipeline. Use EmployeeLookup whenever a person is mentioned.'},
+        'tools': [{'tool_spec': {'type': 'cortex_analyst_text_to_sql', 'name': 'Sales'}},
                   {'tool_spec': {'type': 'generic', 'name': 'EmployeeLookup'}}],
-        'tool_resources': {'Sales': {'identifier': 'X.Y.SALES'},
+        'tool_resources': {'Sales': {'semantic_view': 'X.Y.SALES_SV'},
                            'EmployeeLookup': {'identifier': 'AGENTSHIELD_DEMO.AGENTS.LOOKUP_EMPLOYEE'}}}
+ACTIONS = [{'type': 'remove_tool', 'tool': 'EmployeeLookup'}, {'type': 'add_guardrail', 'category': 'multi_turn'}]
+AFTER = F.apply_actions(SPEC, ACTIONS)
+TARGET = C.TARGETS[1]
 
 
 def pending(**changes):
-    row = {'APPLY_ID': 'a', 'CAMPAIGN_ID': 'c', 'KIND': 'APPLY', 'TARGET': R.APPLY_TARGET, 'STATUS': 'PENDING',
-           'CONSUMED_AT': None, 'EXPIRED': False, 'CONFIRM_TOKEN_HASH': R.token_hash('tok'),
+    row = {'APPLY_ID': 'a', 'CAMPAIGN_ID': 'c', 'KIND': 'APPLY', 'TARGET': TARGET, 'STATUS': 'PENDING',
+           'CONSUMED_AT': None, 'EXPIRED': False, 'CONFIRM_TOKEN_HASH': R.token_hash('tok'), 'CASE_ID': 'k',
            'PROPOSAL_HASH': 'p', 'TARGET_HASH_BEFORE': C.digest(SPEC), 'SPEC_BEFORE': json.dumps(SPEC),
-           'SPEC_AFTER': json.dumps(R.without_tool(SPEC)), 'ROLLBACK_OF': None}
+           'SPEC_AFTER': json.dumps(AFTER), 'ROLLBACK_OF': None, 'ACTIONS': json.dumps(ACTIONS)}
     row.update(changes)
     return row
 
@@ -59,27 +63,22 @@ class Gate:
 
 
 class TransformTests(unittest.TestCase):
-    def test_removes_only_employee_lookup(self):
-        after = R.without_tool(SPEC)
-        self.assertEqual(R.tool_names(after), ['Sales'])
-        self.assertEqual(set(after['tool_resources']), {'Sales'})
-        self.assertEqual(after['instructions'], SPEC['instructions'])
-        self.assertIn('EmployeeLookup', SPEC['tool_resources'])  # input untouched
-
-    def test_precondition(self):
-        for spec in (R.without_tool(SPEC), {**SPEC, 'tool_resources': {'Sales': {}}},
-                     {**SPEC, 'tools': SPEC['tools'] + [SPEC['tools'][1]]}):
-            with self.assertRaises(ValueError):
-                R.without_tool(spec)
-
     def test_set_spec_allowlist_and_quoting(self):
         with self.assertRaises(ValueError):
-            R.set_spec(None, C.TARGETS[0], SPEC)
+            R.set_spec(None, 'OTHER_DB.AGENTS.SOMETHING', SPEC)
         with self.assertRaises(ValueError):
-            R.set_spec(None, R.APPLY_TARGET, {'instructions': {'response': 'a$$b'}})
-        with patch.object(R, 'execute') as execute:
-            R.set_spec(None, R.APPLY_TARGET, SPEC)
-        self.assertTrue(execute.call_args[0][1].startswith('ALTER AGENT ' + R.APPLY_TARGET + ' MODIFY LIVE VERSION'))
+            R.set_spec(None, TARGET, {'instructions': {'response': 'a$$b'}})
+        for target in C.TARGETS:
+            with patch.object(R, 'execute') as execute:
+                R.set_spec(None, target, SPEC)
+            self.assertTrue(execute.call_args[0][1].startswith('ALTER AGENT ' + target + ' MODIFY LIVE VERSION'))
+
+    def test_remaining_fixes(self):
+        proposal = {'fixes': [{'case_id': 'k', 'actions': ACTIONS},
+                              {'case_id': 'j', 'actions': [{'type': 'add_guardrail', 'category': 'data_exfiltration'}]},
+                              {'case_id': 'm', 'actions': [{'type': 'remove_tool', 'tool': 'EmployeeLookup'}]}]}
+        # k applied; m is already covered by k's removal; only j is left.
+        self.assertEqual(R.remaining_fixes(proposal, AFTER, {'k'}), ['j'])
 
 
 class ClaimTests(unittest.TestCase):
@@ -94,7 +93,7 @@ class ClaimTests(unittest.TestCase):
                  (pending(EXPIRED=True), {}, 'TOKEN_EXPIRED'),
                  (pending(), {'token': 'other'}, 'TOKEN_MISMATCH'),
                  (pending(), {'proposal': 'q'}, 'PROPOSAL_HASH_MISMATCH'),
-                 (pending(TARGET=C.TARGETS[0]), {}, 'TARGET_NOT_ALLOWLISTED'),
+                 (pending(TARGET='OTHER_DB.AGENTS.X'), {}, 'TARGET_NOT_ALLOWLISTED'),
                  (pending(), {'active': {'CAMPAIGN_ID': 'x'}}, 'CAMPAIGN_BUSY'),
                  (pending(), {'applied': 1}, 'ALREADY_APPLIED'),
                  (pending(), {'updated': 0}, 'TOKEN_ALREADY_USED'))
@@ -106,42 +105,99 @@ class ClaimTests(unittest.TestCase):
 
 
 class ApplyTests(unittest.TestCase):
-    def run_apply(self, live_sequence, row=None):
+    def run_apply(self, live_sequence, row=None, fixes=None):
         live = iter(live_sequence)
+        proposal = {'fixes': fixes if fixes is not None else [{'case_id': 'k', 'actions': ACTIONS}]}
         with Gate(row or pending()) as gate, \
                 patch.object(R, 'target_spec', lambda session, target: next(live)), \
                 patch.object(R, 'set_spec') as set_spec, \
-                patch.object(R, 'campaign', lambda session, cid: {'REQUEST': json.dumps({'target': R.APPLY_TARGET})}), \
+                patch.object(R, 'campaign', lambda session, cid: {'CAMPAIGN_ID': 'c', 'PROPOSAL': json.dumps(proposal),
+                                                                   'REQUEST': json.dumps({'target': TARGET})}), \
                 patch.object(R, 'submit', lambda session, request: {'campaign_id': 'retest-1'}):
             result = R.apply(None, 'a', 'p', 'tok', 'snowbots:abc')
         return result, set_spec, gate
 
-    def test_apply_then_retest(self):
-        result, set_spec, gate = self.run_apply([SPEC, R.without_tool(SPEC)])
+    def test_last_fix_starts_retest(self):
+        result, set_spec, gate = self.run_apply([SPEC, AFTER])
         self.assertEqual(result['status'], 'APPLIED')
+        self.assertEqual(result['remaining_fixes'], [])
         self.assertEqual(result['retest_campaign_id'], 'retest-1')
-        self.assertEqual(set_spec.call_args[0][2], R.without_tool(SPEC))
+        self.assertEqual(set_spec.call_args[0][2], AFTER)
         self.assertTrue(any('EXECUTE TASK' in sql for sql in gate.sql))
 
+    def test_waits_for_remaining_fixes(self):
+        fixes = [{'case_id': 'k', 'actions': ACTIONS},
+                 {'case_id': 'j', 'actions': [{'type': 'add_guardrail', 'category': 'data_exfiltration'}]}]
+        result, _, gate = self.run_apply([SPEC, AFTER], fixes=fixes)
+        self.assertEqual((result['remaining_fixes'], result['retest_status']), (['j'], 'WAITING_FOR_REMAINING_FIXES'))
+        self.assertFalse(any('EXECUTE TASK' in sql for sql in gate.sql))
+
+    def test_works_on_every_demo_target(self):
+        for target in C.TARGETS:
+            with self.subTest(target=target):
+                result, set_spec, _ = self.run_apply([SPEC, AFTER], pending(TARGET=target))
+                self.assertEqual((result['status'], result['target']), ('APPLIED', target))
+                self.assertEqual(set_spec.call_args[0][1], target)
+
     def test_drift_fails_without_touching_spec(self):
-        result, set_spec, _ = self.run_apply([R.without_tool(SPEC)])
+        result, set_spec, _ = self.run_apply([AFTER])
         self.assertEqual((result['status'], result['reason']), ('FAILED', 'TARGET_CONFIGURATION_CHANGED'))
         set_spec.assert_not_called()
 
     def test_verify_failure_restores_original(self):
         result, set_spec, _ = self.run_apply([SPEC, SPEC, SPEC])
-        self.assertEqual(result['reason'], 'VERIFY_TOOL_STILL_PRESENT')
+        self.assertEqual(result['reason'], 'VERIFY_FIX_NOT_PRESENT')
         self.assertTrue(result['restored'])
         self.assertEqual(set_spec.call_args[0][2], SPEC)
 
     def test_rollback_restores_exact_spec(self):
-        fixed = R.without_tool(SPEC)
-        row = pending(KIND='ROLLBACK', TARGET_HASH_BEFORE=C.digest(fixed), SPEC_BEFORE=json.dumps(fixed),
+        row = pending(KIND='ROLLBACK', TARGET_HASH_BEFORE=C.digest(AFTER), SPEC_BEFORE=json.dumps(AFTER),
                       SPEC_AFTER=json.dumps(SPEC), ROLLBACK_OF='orig')
-        result, set_spec, gate = self.run_apply([fixed, SPEC], row)
+        result, set_spec, gate = self.run_apply([AFTER, SPEC], row)
         self.assertEqual(result['status'], 'APPLIED')
         self.assertNotIn('retest_campaign_id', result)
         self.assertTrue(any("'ROLLED_BACK'" in sql for sql in gate.sql))
+
+
+class PrepareTests(unittest.TestCase):
+    def prepare(self, live, applied=(), latest_hash=None, case_id='k'):
+        fixes = [{'case_id': 'k', 'category': 'multi_turn', 'fix_id': 'FIX_K', 'actions': ACTIONS}]
+        current = {'CAMPAIGN_ID': 'c', 'STATUS': 'COMPLETE', 'TARGET_HASH': C.digest(SPEC),
+                   'REQUEST': json.dumps({'target': TARGET}),
+                   'PROPOSAL': json.dumps({'fixes': fixes, 'proposal_hash': C.digest(
+                       {'campaign': 'c', 'hash': C.digest(SPEC), 'fixes': ['FIX_K']})})}
+
+        def fake_rows(session, sql, params=None):
+            if 'TARGET_HASH_AFTER' in sql:
+                return [{'TARGET_HASH_AFTER': latest_hash}] if latest_hash else []
+            return [{'CASE_ID': case} for case in applied]
+        with patch.object(R, 'check_account', lambda session: None), \
+                patch.object(R, 'campaign', lambda session, cid: current), \
+                patch.object(R, 'rows', fake_rows), \
+                patch.object(R, 'target_spec', lambda session, target: live), \
+                patch.object(R, 'mint', lambda *args: ('11111111-2222', 'tok')) as _:
+            return R.prepare(None, 'c', case_id)
+
+    def test_prepares_case_diff(self):
+        prepared = self.prepare(SPEC)
+        self.assertEqual(prepared['tools_after'], ['Sales'])
+        self.assertIn('Remove the EmployeeLookup tool', prepared['changes'])
+
+    def test_rejections(self):
+        with self.assertRaisesRegex(ValueError, 'NO_FIX_FOR_CASE'):
+            self.prepare(SPEC, case_id='other')
+        with self.assertRaisesRegex(ValueError, 'ALREADY_APPLIED'):
+            self.prepare(SPEC, applied=('k',))
+        with self.assertRaisesRegex(ValueError, 'TARGET_CONFIGURATION_CHANGED'):
+            self.prepare({**SPEC, 'models': {'orchestration': 'x'}})
+
+    def test_stacks_on_latest_applied_fix(self):
+        partial = F.apply_actions(SPEC, ACTIONS[:1])
+        prepared = self.prepare(partial, latest_hash=C.digest(partial))
+        self.assertEqual(prepared['tools_after'], ['Sales'])
+        covered = self.prepare(AFTER, latest_hash=C.digest(AFTER))
+        self.assertEqual(covered['status'], 'ALREADY_COVERED')
+
 
     def test_receipt_validated(self):
         with self.assertRaises(ValueError), patch.object(R, 'check_account', lambda session: None):
@@ -195,6 +251,15 @@ class BoundaryTests(unittest.TestCase):
         text = json.loads((ROOT / 'snowbots' / 'agentshield-bot.json').read_text())['description_template']
         self.assertIn('LIVE MONITORING', text)
         self.assertIn('launch --agent', text)
+        self.assertIn('--case-id <case_id>', text)
+        self.assertIn('REASON_TEXT', text)
+
+    def test_report_shows_reason_sentence_and_fix_cards(self):
+        import agentshield_report
+        self.assertIn('did not refuse', agentshield_report.reason_cell(
+            {'CATEGORY': 'data_exfiltration', 'VERDICT': 'FAIL', 'REASON': 'BULK_EXPORT_NOT_REFUSED'}))
+        source = (ROOT / 'src' / 'agentshield_report.py').read_text()
+        self.assertIn("'Ready for approval'", source)
 
 
 if __name__ == '__main__':

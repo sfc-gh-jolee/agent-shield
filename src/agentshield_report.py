@@ -7,6 +7,16 @@ def state(row):
     return {'PASS': 'done', 'FAIL': 'pend'}.get(row.get('VERDICT'), 'val')
 
 
+def reason_cell(row):
+    """Plain sentence first, original judge reason code underneath for traceability."""
+    if not row.get('VERDICT') and not row.get('REASON'):
+        return 'Not yet evaluated'
+    from agentshield_fixes import describe
+    sentence = row.get('REASON_TEXT') or describe(row['CATEGORY'], row.get('VERDICT'), row.get('REASON'))
+    code = row.get('REASON')
+    return kit.esc(sentence) + ('<br><code class="reasoncode">' + kit.esc(code) + '</code>' if code else '')
+
+
 def render(summary, surface, proposal, comparison=None):
     text = kit.esc
     request = summary['request']
@@ -72,7 +82,7 @@ def render(summary, surface, proposal, comparison=None):
     status_html += kit.filters([(group_ids[group], labels[group]) for group in groups], len(cases))
     table_rows = [{'group': group_ids[row['CATEGORY']], 'action': state(row) != 'done', 'cells': [
         kit.pill(state(row), row.get('VERDICT') or 'UNRESOLVED'), text(labels[row['CATEGORY']]),
-        '<code>' + text(row['CASE_ID']) + '</code>', text(row.get('REASON') or 'Not yet evaluated')]}
+        '<code>' + text(row['CASE_ID']) + '</code>', reason_cell(row)]}
         for row in sorted(cases, key=lambda row: state(row) == 'done')]
     status_html += kit.table(['Verdict', 'Category', 'Evidence reference', 'Reason'], table_rows, 'case-table')
     body.append(kit.section('results', 1, 'Observed results', status_html, 'Action-first cases / baseline separate'))
@@ -91,12 +101,21 @@ def render(summary, surface, proposal, comparison=None):
         text(finding.get('code')) + ' / ' + text(finding.get('tool')) + '</li>' for finding in surface.get('findings', [])) + '</ul>'
     surface_html += '<p class="footnote">Metadata gaps: ' + str(len(surface.get('gaps', []))) + '.</p>'
     body.append(kit.section('surface', 2, 'Attack surface', surface_html, str(len(tools)) + ' configured tool observations'))
+    fixes = proposal.get('fixes') or []
+    fix_cards = ''.join(
+        '<article class="card gap"><h3>' + text(labels.get(fix['category'], fix['category'])) + ' ' +
+        kit.pill('pend' if fix.get('verdict') == 'FAIL' else 'val', fix.get('verdict', '')) + '</h3>'
+        '<p><code>' + text(fix['case_id']) + '</code></p><p><b>Why:</b> ' + text(fix.get('why') or '') + '</p>'
+        '<ul>' + ''.join('<li>' + text(change) + '</li>' for change in fix.get('changes', [])) + '</ul>' +
+        kit.pill('blue', 'Ready for approval') + '</article>' for fix in fixes)
     body.append(kit.section('remediation', 3, 'Remediation preview',
-        '<div class="grid"><article class="card gap"><h3>Review proposal</h3>' + kit.pill('val', proposal['status']) +
+        '<div class="grid"><article class="card"><h3>Review proposal</h3>' + kit.pill('val', proposal['status']) +
         '<p>' + text(proposal['impact']) + '</p></article><article class="card"><h3>Application gate</h3>' +
-        kit.pill('drop', 'Not applied') + '<p>No executable fix control or credentials are embedded in this file.</p></article></div>'
-        '<details open><summary>Proposed operation</summary><p>' +
-        text(proposal.get('operation') or 'No eligible automatic recipe.') + '</p></details>', 'Human approval required'))
+        kit.pill('drop', 'Not applied') + '<p>Each fix needs its own human approval. No executable fix control or '
+        'credentials are embedded in this file.</p></article></div>' +
+        ('<div class="grid" style="margin-top:14px">' + fix_cards + '</div>' if fixes else
+         '<details open><summary>Proposed operation</summary><p>No failed or inconclusive cases need a fix.</p></details>'),
+        str(len(fixes)) + ' fix(es) / human approval each'))
     if comparison:
         comparison_html = '<p>Parent campaign: <code>' + text(comparison['parent_campaign_id']) + '</code></p>' + kit.table(
             ['Case', 'Before', 'After'], [{'cells': ['<code>' + text(row['case_id']) + '</code>',
@@ -108,7 +127,7 @@ def render(summary, surface, proposal, comparison=None):
     body.append(kit.section('faq', 5, 'Reading this report', '<ul class="faq">'
         '<li><strong>Is this a security score?</strong><br>No. Counts summarize only this campaign and do not certify the target.</li>'
         '<li><strong>Where is the raw evidence?</strong><br>Raw responses, prompts and records remain in restricted sandbox tables. '
-        'This export contains only selected metadata and reason codes.</li>'
+        'This export contains only selected metadata, plain-language reasons and reason codes.</li>'
         '<li><strong>Will it work without JavaScript?</strong><br>All results remain visible. Theme, filter and print buttons '
         'appear only when scripts run; use browser printing otherwise.</li></ul>'
         '<details><summary>Provenance and processing</summary><p>Campaign: <code>' + text(summary['campaign_id']) +

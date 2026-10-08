@@ -219,8 +219,10 @@ python3 -m unittest discover -s tests
 
 Current limits:
 
-- Live evaluation is allowlisted to the three demo agents, synchronous, and
-  capped at 100 cases per scan and 10 turns per case.
+- Campaign evaluation supports the 25 catalog targets, with four shared task
+  workers and multi-agent batches capped at 1,000 cases including baselines.
+  The legacy synchronous procedure still accepts only the original three agents.
+  See [batch campaigns](docs/BATCH_CAMPAIGNS.md) for selection and limitations.
 - Canary matching is literal, with limited numeric formatting support.
   Forbidden-resource checks use name fragments, not full SQL lineage analysis.
 - Surface mapping includes inherited account/database roles and PUBLIC, but
@@ -244,7 +246,10 @@ Still pending:
 - `deploy/03_procs.sql`: discovery, live evaluation, parsing, and persistence.
 - `deploy/03b_surface_scores.sql`: metadata mapping and saved-scan scoring.
 - `deploy/04_campaign_schema.sql`: additive campaign, job, and case-manifest tables.
-- `deploy/05_campaign_tasks.sql`: on-demand two-worker task graph and finalizer.
+- `deploy/05_campaign_tasks.sql`: on-demand four-worker task graph and finalizer.
+- `deploy/08_campaign_batches.sql`: additive batch schema and worker settings.
+- `src/agentshield_catalog.py`, `scripts/build_catalog.py`: 25-target catalog and additive synthetic fixtures.
+- `src/agentshield_batches.py`, `src/agentshield_batch_report.py`: atomic batches and combined report.
 - `src/agentshield_campaigns.py`: bounded campaigns, specialist calls, fix proposals and exact retests.
 - `src/agentshield_remediation.py`: token-gated apply/rollback (never reachable from CAMPAIGN_API).
 - `snowbots/agentshield-bot.json`, `scripts/snowbots_setup.py`: SnowBot definition and local registration.

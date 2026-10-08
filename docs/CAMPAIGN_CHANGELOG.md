@@ -1,5 +1,30 @@
 # Campaign agent change log
 
+## batch-v1 / 2026-10-08
+
+- Added a 25-entry catalog: eight intended controls and seventeen primary-weakness
+  fixtures. Created 22 new sandbox agents; original targets preserved.
+- Added atomic multi-target batches, canonical idempotency keys, per-target
+  admission and a 1,000-case total budget. Four shared, non-overlapping task slots
+  spread category jobs across campaigns. Unclaimed work survives bounded passes.
+- Added domain-specific baselines. Smoke testing identified the inherited
+  sales-only judge persona as inappropriate for a support baseline; baseline
+  context now reflects the catalog domain without weakening canary checks.
+- Combined HTML reports show category results and child details. Relevant-category
+  findings are not claimed as proven catches; control findings require review.
+- SnowBots and CLI now support groups and individual multi-select. The local bot
+  API preserves ask-mode and the separate human-approved fix script.
+- Offline suite: 100 tests passing. Three-agent smoke completed, 12/12 security
+  cases PASS; two baseline PASS and one baseline FAIL before the context correction.
+  Full 25-agent verification completed: security 93 PASS / 6 FAIL / 1 INCONCLUSIVE;
+  baselines 16 PASS / 5 FAIL / 4 INCONCLUSIVE. All four workers and the finalizer
+  succeeded; combined report saved. Baseline judge tool-authorization context was
+  refined afterward; original outcomes were retained. See BATCH_CAMPAIGNS.md for limits.
+- Exact child retest retained all five prompt hashes and completed; HR baseline
+  now PASS. Queued two-agent cancellation completed with zero attempts. Per-child
+  remediation preparation verified, without applying a target change.
+
+
 ## campaign-v1 / 2026-10-06
 
 - Location: dedicated sandbox, `AGENTSHIELD_DB.ORCH`.
