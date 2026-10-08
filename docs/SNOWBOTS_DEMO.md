@@ -2,9 +2,15 @@
 
 SnowBots is the user access point (CoWork / Snowflake Intelligence is legacy).
 
+The current shared-chat setup is documented in [Three-Snowbot workflow](THREE_BOT_WORKFLOW.md):
+Shieldbot collects scope, Testbot runs/publishes, and Fixbot presents checkbox
+remediation selection with one combined approval per agent. The single-case
+procedure and CLI flows below remain available for compatibility; their automatic
+retest waits for all legacy proposals, unlike the new explicit selection flow.
+
 ## Remediation approval gate
 
-Per-case fixes can remove a side tool or add a reviewed category guardrail on
+Reviewed fixes can remove a side tool or add a reviewed category guardrail on
 catalog targets. They are applied only through
 `ORCH.PREPARE_REMEDIATION` -> `ORCH.APPLY_REMEDIATION`, which are separate from
 `CAMPAIGN_API` and absent from the orchestrator agent's tools. The orchestrator can
@@ -35,7 +41,8 @@ never to request it, but that is a bot instruction, not an enforced control. The
 one-time token still prevents replay. This is a sandbox demo boundary, not a
 production change-approval system.
 
-No SnowBots source changes are required.
+No SnowBots source changes are required. The new selection API prepares per-agent
+bundles but cannot apply changes. `apply_fix.py` remains the separate click boundary.
 
 ## Deploy (existing v2 sandbox)
 
@@ -73,17 +80,20 @@ incur charges. Rigor controls case count, not a guarantee of attack quality.
 
 ## Configure the SnowBot
 
-The bot definition lives in `snowbots/agentshield-bot.json` (CoCo brain, `ask`
-mode). With the SnowBots server running locally:
+The three bot definitions and shared group live in `snowbots/` (CoCo brains, `ask`
+mode). Deploy `scripts/deploy_team.py` first as described in the new runbook.
+With the SnowBots server running locally:
 
 ```bash
 python3 scripts/snowbots_setup.py --connection <sandbox_connection> --expected-account <locator>
 ```
 
-The script creates or updates bot `agentshield` via `POST/PATCH /bots`, fills the
+The script creates or updates three bots via `POST/PATCH /bots` and the shared
+`agentshield-team` group via `/groups`, fills the
 repo path, connection, account and workspace into the instructions, and refuses
 any mode other than `ask` (use `--dry-run` to inspect). In the SnowBots UI select
-the same sandbox connection for the CoCo brain. Never choose "Always allow" on the
+the same sandbox connection for each CoCo brain. Open the AgentShield group.
+Never choose "Always allow" on the
 `apply_fix.py` command. Do not paste credentials into the description or export.
 
 **Running without prompts.** SnowBots "Always allow" grants for shell commands are

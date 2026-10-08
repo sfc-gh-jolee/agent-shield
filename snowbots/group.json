@@ -1,0 +1,11 @@
+{
+  "id": "agentshield-team",
+  "name": "AgentShield",
+  "description": "Shieldbot collects scope; Testbot runs the existing demo tests and publishes results; Fixbot offers selected remedies with one human approval per agent.",
+  "icon": "shield",
+  "members": [
+    {"botId": "agentshield", "lead": true},
+    {"botId": "agentshield-test", "lead": false},
+    {"botId": "agentshield-fix", "lead": false}
+  ]
+}

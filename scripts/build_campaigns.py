@@ -21,11 +21,11 @@ def build(destination):
     shutil.copyfile(ROOT / 'src' / 'agentshield_html_kit.py', destination / 'agentshield_html_kit.py')
     shutil.copyfile(ROOT / 'src' / 'agentshield_remediation.py', destination / 'agentshield_remediation.py')
     shutil.copyfile(ROOT / 'src' / 'agentshield_fixes.py', destination / 'agentshield_fixes.py')
-    for module in ('agentshield_catalog', 'agentshield_batches', 'agentshield_batch_report'):
+    for module in ('agentshield_catalog', 'agentshield_batches', 'agentshield_batch_report', 'agentshield_selections'):
         shutil.copyfile(ROOT / 'src' / (module + '.py'), destination / (module + '.py'))
     modules = ('agentshield_evaluator', 'agentshield_campaigns', 'agentshield_report', 'agentshield_html_kit',
                'agentshield_remediation', 'agentshield_fixes', 'agentshield_catalog',
-               'agentshield_batches', 'agentshield_batch_report')
+               'agentshield_batches', 'agentshield_batch_report', 'agentshield_selections')
     statements = ['USE ROLE ACCOUNTADMIN;', 'USE WAREHOUSE AGENTSHIELD_WH;']
     for module in modules:
         path = (destination / (module + '.py')).resolve()
@@ -54,6 +54,10 @@ def build(destination):
                           ") RETURNS VARIANT LANGUAGE PYTHON RUNTIME_VERSION='3.11' "
                           "PACKAGES=('snowflake-snowpark-python') IMPORTS=(" + imports +
                           ") HANDLER='agentshield_remediation." + handler + "' EXECUTE AS CALLER;")
+    statements.append('CREATE OR REPLACE PROCEDURE AGENTSHIELD_DB.ORCH.REMEDIATION_SELECTION_API('
+                      'ACTION VARCHAR, REQUEST_JSON VARCHAR) RETURNS VARIANT LANGUAGE PYTHON '
+                      "RUNTIME_VERSION='3.11' PACKAGES=('snowflake-snowpark-python') "
+                      'IMPORTS=(' + imports + ") HANDLER='agentshield_selections.run' EXECUTE AS CALLER;")
     (destination / 'deploy_campaigns.sql').write_text('\n'.join(statements) + '\n')
     agents = []
     categories = ('data_exfiltration', 'indirect_injection', 'multi_turn', 'pii_extraction',

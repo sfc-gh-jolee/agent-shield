@@ -13,11 +13,14 @@ the original single-target command; `--group safe` selects all eight controls.
 Use `--list-agents` for the authoritative catalog. Every call still requires an
 explicit connection and expected account locator.
 
-The SnowBot asks for groups or individual agents and rigor. Individual selection
-is grouped by domain, using at most six options per question. The SnowBots ACP
-adapter supports multi-select arrays; exact runtime card presentation remains a
-UI rehearsal check. The bot definition is updated through the local API, without
-editing SnowBots source. Existing approval instructions are retained.
+Shieldbot asks for groups or individual agents and rigor. Individual selection
+is one numbered checkbox page per domain ("Sales agents (page 1 of 5)"), each with a
+"None of these" option, all asked in a single round (`agent_pages` in `--list-agents`).
+Rigor options show tests per category (2 x rigor). The three-bot shared
+chat and checkbox-style intake cards have been exercised in the local UI.
+Testbot receives a versioned handoff, while Fixbot owns selective remediation.
+Definitions are updated through the local API without editing SnowBots source.
+See [Three-Snowbot workflow](THREE_BOT_WORKFLOW.md) for deployment and recovery.
 
 ## Bounds and concurrency
 
@@ -46,8 +49,10 @@ current run's cleanup. Cancellation is cooperative at case boundaries.
 
 Remediation remains deliberately more conservative than admission: *any* active
 campaign blocks mutation, because an agent can delegate to another catalog agent.
-Submission also blocks while a remediation is APPLYING. There is no batch apply.
-Existing per-case approvals, tokens, rollback and exact-case retest remain.
+Submission also blocks while a remediation is APPLYING. The new selection flow
+combines chosen findings into one approval per agent, not one blanket batch apply.
+It finishes the selected decisions before dispatching exact retests. Existing
+single-case approval interfaces remain available.
 
 ## Evidence and reports
 

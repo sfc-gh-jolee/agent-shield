@@ -16,9 +16,11 @@ import time
 import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from agentshield_catalog import BY_ALIAS, LEGACY_ALIASES, resolve, public_listing, groups
+import agentshield_handoffs as handoffs
 
 TOKENS = Path(__file__).resolve().parents[1] / 'build' / 'fix_tokens'
 WATCH = Path(__file__).resolve().parents[1] / 'build' / 'watch'
+HANDOFFS = Path(__file__).resolve().parents[1] / 'build' / 'handoffs'
 TERMINAL = ('COMPLETE', 'PARTIAL', 'FAILED', 'CANCELLED')
 LABELS = {'prompt_injection': 'Instruction manipulation', 'scope_violation': 'Scope violations',
           'pii_extraction': 'Sensitive-data disclosure', 'social_engineering': 'Social engineering',
@@ -73,6 +75,52 @@ def api(connection, action, request):
     return json.loads(value) if isinstance(value, str) else value
 
 
+SELECTION_ACTIONS = ('remediation_options', 'select_fixes', 'selection_status', 'prepare_bundle',
+                     'skip_bundle', 'finish_selection')
+# The SnowBots CoCo ask-user-question schema sets no question/option caps; these keep each
+# popup readable. A domain larger than CARD_AGENTS splits into numbered pages.
+CARD_QUESTIONS, CARD_AGENTS = 12, 8
+NONE_OPTION = 'None of these'
+DOMAIN_LABELS = {'hr': 'HR', 'it': 'IT'}
+
+
+def agent_pages(listing):
+    """Numbered domain checkbox pages, batched into as few ask-user-question calls as possible.
+
+    CoCo shows each question as its own popup but returns a call's answers together, so
+    one call means one round trip. Every page offers NONE_OPTION so the user can move on
+    without Skip, which discards the whole call."""
+    per_page = CARD_AGENTS
+    domains = {}
+    for item in listing:
+        domains.setdefault(item['domain'], []).append(item)
+    chunks = []
+    for domain, items in domains.items():
+        name = DOMAIN_LABELS.get(domain, domain.title())
+        count = -(-len(items) // per_page)
+        # Split evenly so a domain of six becomes 3 + 3, not 5 + 1.
+        bounds = [len(items) * i // count for i in range(count + 1)]
+        for index in range(count):
+            chunks.append((name, ' %d/%d' % (index + 1, count) if count > 1 else '',
+                           items[bounds[index]:bounds[index + 1]]))
+    questions = [{'header': (name + suffix)[:12],
+                  'question': '%s agents%s (page %d of %d)' % (name, suffix, number, len(chunks)),
+                  'multiSelect': True,
+                  'options': [{'label': item['title']} for item in part] + [{'label': NONE_OPTION}]}
+                 for number, (name, suffix, part) in enumerate(chunks, 1)]
+    return [{'questions': questions[i:i + CARD_QUESTIONS],
+             'aliases': {item['title']: item['alias']
+                         for *_, part in chunks[i:i + CARD_QUESTIONS] for item in part}}
+            for i in range(0, len(questions), CARD_QUESTIONS)]
+
+
+def selection_api(connection, action, request):
+    response = sql(connection, 'USE WAREHOUSE AGENTSHIELD_WH; CALL AGENTSHIELD_DB.ORCH.REMEDIATION_SELECTION_API(' +
+                   literal(action) + ', ' + literal(json.dumps(request)) + ')')
+    value = next(iter(response[0].values()))
+    return json.loads(value) if isinstance(value, str) else value
+
+
 def launch(connection, agent, rigor, categories):
     """Submit and start directly; same validation as the orchestrator path, no model call."""
     if agent not in AGENTS:
@@ -101,6 +149,38 @@ def launch_batch(connection, agents, selected_groups, rigor, categories, request
     started = api(connection, 'start_batch', {'batch_id': submitted['batch_id']})
     return {**submitted, 'status': started['status'], 'request_key': key,
             'agents': [item['alias'] for item in selected]}
+
+
+def intake(connection, agents, selected_groups, rigor, categories, request_key=None, setup_only=False):
+    available = [item['CATEGORY'] for item in api(connection, 'options', {})['categories']]
+    chosen = available if categories in (None, '', 'all') else categories.split(',')
+    result = handoffs.create(agents.split(',') if agents else [], selected_groups or [], rigor, chosen,
+                             available, request_key or 'sb-' + uuid.uuid4().hex, 'setup' if setup_only else 'launch')
+    HANDOFFS.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = HANDOFFS / (result['request_key'] + '.json')
+    try:
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        if json.loads(path.read_text()) != result:
+            raise ValueError('IDEMPOTENCY_CONFLICT')
+    else:
+        with os.fdopen(descriptor, 'w') as output:
+            json.dump(result, output)
+    return result
+
+
+def launch_handoff(connection, request):
+    available = [item['CATEGORY'] for item in api(connection, 'options', {})['categories']]
+    checked = handoffs.validate(request, available)
+    if checked['intent'] == 'setup':
+        return {'status': 'SETUP_ONLY', 'handoff': checked, 'started': False}
+    print('REQUEST_KEY: ' + checked['request_key'], flush=True)
+    submitted = api(connection, 'submit_batch', {key: checked[key] for key in
+                    ('targets', 'categories', 'rigor', 'request_key')})
+    current = api(connection, 'batch_status', {'batch_id': submitted['batch_id']})
+    if current['status'] == 'QUEUED':
+        current = api(connection, 'start_batch', {'batch_id': submitted['batch_id']})
+    return {**submitted, 'status': current['status'], 'request_key': checked['request_key']}
 
 
 def watch_batch(connection, batch_id, max_seconds, interval):
@@ -168,7 +248,9 @@ def main():
                                            'prepare_fix', 'prepare_rollback', 'launch', 'watch',
                                            'submit_batch', 'start_batch', 'batch_status', 'batch_report',
                                            'batch_report_summary', 'cancel_batch', 'watch_batch',
-                                           'refresh_batch_report'], nargs='?', default='options')
+                                           'refresh_batch_report', 'intake', 'launch_handoff'] + list(SELECTION_ACTIONS), nargs='?', default='options')
+    parser.add_argument('--setup-only', action='store_true')
+    parser.add_argument('--selection-id')
     parser.add_argument('--agent', help='launch: one catalog alias (legacy safe/leaky/hr supported)')
     parser.add_argument('--agents', help='launch: comma-separated agent aliases')
     parser.add_argument('--group', action='append', help='launch: group name; repeat to combine groups')
@@ -191,7 +273,26 @@ def main():
     if identity.upper() != args.expected_account.upper():
         raise RuntimeError('ACCOUNT_MISMATCH: no campaign call made')
     if args.list_agents:
-        print(json.dumps({'agents': public_listing(), 'groups': groups()}, indent=2))
+        listing = public_listing()
+        print(json.dumps({'agents': listing, 'groups': groups(), 'agent_pages': agent_pages(listing)}, indent=2))
+        return
+    if args.action == 'intake':
+        print(json.dumps(intake(args.connection, args.agents or args.agent, args.group, args.rigor,
+                                args.categories, args.request_key, args.setup_only), indent=2))
+        return
+    if args.action == 'launch_handoff':
+        print(json.dumps(launch_handoff(args.connection, json.loads(args.request)), indent=2))
+        return
+    if args.action in SELECTION_ACTIONS:
+        request = json.loads(args.request)
+        if not isinstance(request, dict):
+            raise ValueError('Request must be a JSON object')
+        for key, value in (('batch_id', args.batch_id), ('selection_id', args.selection_id),
+                           ('campaign_id', args.campaign_id), ('request_key', args.request_key)):
+            if value:
+                request[key] = value
+        value = selection_api(args.connection, args.action, request)
+        print(json.dumps(save_token(value) if value.get('confirm_token') else value, indent=2))
         return
     if args.action == 'launch':
         if args.agents or args.group:

@@ -46,7 +46,8 @@ class Gate:
                         patch.object(R, 'lock', lambda session: None),
                         patch.object(R, 'check_account', lambda session: None),
                         patch.object(R, 'rows', lambda session, sql, params=None: [self.row]),
-                        patch.object(R, 'scalar', lambda session, sql, params=None: self.applied),
+                        patch.object(R, 'scalar', lambda session, sql, params=None:
+                                     0 if "WHERE STATUS = 'APPLYING'" in sql else self.applied),
                         patch.object(R, 'active_campaign', lambda session: self.active),
                         patch.object(R, 'execute', self.execute)]
         for item in self.patches:
@@ -131,6 +132,18 @@ class ApplyTests(unittest.TestCase):
         result, _, gate = self.run_apply([SPEC, AFTER], fixes=fixes)
         self.assertEqual((result['remaining_fixes'], result['retest_status']), (['j'], 'WAITING_FOR_REMAINING_FIXES'))
         self.assertFalse(any('EXECUTE TASK' in sql for sql in gate.sql))
+
+    def test_bundle_apply_does_not_start_retest_between_agents(self):
+        import agentshield_selections
+        row = pending(SELECTION_ID='selection', CASE_IDS=['k', 'm'])
+        with patch.object(agentshield_selections, 'claim_bundle') as claim:
+            result, _, gate = self.run_apply([SPEC, AFTER], row)
+        claim.assert_called_once()
+        self.assertEqual(result['selection_id'], 'selection')
+        self.assertEqual(result['case_ids'], ['k', 'm'])
+        self.assertEqual(result['retest_status'], 'WAITING_FOR_SELECTION_DECISIONS')
+        self.assertFalse(any('EXECUTE TASK' in sql for sql in gate.sql))
+        self.assertTrue(any('REMEDIATION_BUNDLES SET STATUS' in sql for sql in gate.sql))
 
     def test_works_on_every_demo_target(self):
         for target in C.TARGETS:
@@ -248,11 +261,13 @@ class BoundaryTests(unittest.TestCase):
         self.assertEqual(lines[1:], ['  Scope violations: 1 PASS, 1 FAIL', '  Sensitive-data disclosure: 1 PASS, 1 pending'])
 
     def test_bot_monitors_live(self):
-        text = json.loads((ROOT / 'snowbots' / 'agentshield-bot.json').read_text())['description_template']
-        self.assertIn('LIVE MONITORING', text)
-        self.assertIn('launch --agent', text)
-        self.assertIn('--case-id <case_id>', text)
-        self.assertIn('REASON_TEXT', text)
+        text = json.loads((ROOT / 'snowbots' / 'testbot.json').read_text())['description_template']
+        self.assertIn('watch_batch --batch-id', text)
+        self.assertIn('launch_handoff', text)
+        self.assertIn('batch_report_summary', text)
+        fix_text = json.loads((ROOT / 'snowbots' / 'fixbot.json').read_text())['description_template']
+        self.assertIn('prepare_bundle', fix_text)
+        self.assertIn('human Allow once', fix_text)
 
     def test_report_shows_reason_sentence_and_fix_cards(self):
         import agentshield_report

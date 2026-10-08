@@ -1,5 +1,22 @@
 # Campaign agent change log
 
+## three-bot-v1 / 2026-10-08
+
+- Split the SnowBots front end into Shieldbot, Testbot and Fixbot in a shared
+  group; retained the existing bounded campaign engine and target allowlist.
+- Added canonical versioned handoffs, stable request keys and setup-only validation.
+- Added explicit persisted finding selections, deduplicated per-agent proposals,
+  one expiring hash-bound approval per agent, and denial invalidation.
+- Exact retests now follow completion of the selected decisions rather than
+  requiring every unselected proposal. Legacy single-case callers remain intact.
+- Added additive selection migration and account/idle-checked deployment with
+  private pre-change snapshots. No production or target configuration changes
+  are authorized merely by installing this workflow.
+- 126 offline tests pass. Live shared-chat smoke completed 2 security PASS and
+  1 baseline PASS, attached HTML and reached Fixbot. Live backend denial checks
+  passed; UI finding selection, combined preview and separate apply Deny were
+  exercised without applying a target change.
+
 ## batch-v1 / 2026-10-08
 
 - Added a 25-entry catalog: eight intended controls and seventeen primary-weakness

@@ -67,9 +67,10 @@ def expected_hash(session, campaign_id, snapshot_hash):
 
 
 def applied_cases(session, campaign_id):
-    found = rows(session, 'SELECT CASE_ID FROM ' + CORE + "REMEDIATION_APPLIES WHERE CAMPAIGN_ID = ? "
+    found = rows(session, 'SELECT CASE_ID, CASE_IDS FROM ' + CORE + "REMEDIATION_APPLIES WHERE CAMPAIGN_ID = ? "
                  "AND KIND = 'APPLY' AND STATUS IN ('APPLYING','APPLIED')", [campaign_id])
-    return {row['CASE_ID'] for row in found}
+    return {case_id for row in found for case_id in
+            (decoded(row.get('CASE_IDS')) or ([row['CASE_ID']] if row.get('CASE_ID') else []))}
 
 
 def remaining_fixes(proposal, live, done):
@@ -166,6 +167,11 @@ def claim(session, apply_id, proposal_hash, token, receipt):
             raise ValueError('TARGET_NOT_ALLOWLISTED')
         if active_campaign(session):
             raise ValueError('CAMPAIGN_BUSY')
+        if scalar(session, 'SELECT COUNT(*) FROM ' + CORE + "REMEDIATION_APPLIES WHERE STATUS = 'APPLYING'"):
+            raise ValueError('REMEDIATION_BUSY')
+        if pending.get('SELECTION_ID'):
+            from agentshield_selections import claim_bundle
+            claim_bundle(session, pending)
         if pending['KIND'] == 'APPLY' and scalar(session, 'SELECT COUNT(*) FROM ' + CORE +
                 "REMEDIATION_APPLIES WHERE CAMPAIGN_ID = ? AND CASE_ID = ? AND KIND = 'APPLY' "
                 "AND STATUS IN ('APPLYING','APPLIED')", [pending['CAMPAIGN_ID'], pending.get('CASE_ID')]):
@@ -180,9 +186,13 @@ def claim(session, apply_id, proposal_hash, token, receipt):
 
 
 def finish(session, apply_id, state, reason=None, after=None):
-    execute(session, 'UPDATE ' + CORE + 'REMEDIATION_APPLIES SET STATUS = ?, REASON = ?, TARGET_HASH_AFTER = ?, '
-            'UPDATED_AT = CURRENT_TIMESTAMP() WHERE APPLY_ID = ?',
-            [state, reason, digest(after) if after is not None else None, apply_id])
+    with transaction(session):
+        lock(session)
+        execute(session, 'UPDATE ' + CORE + 'REMEDIATION_APPLIES SET STATUS = ?, REASON = ?, TARGET_HASH_AFTER = ?, '
+                'UPDATED_AT = CURRENT_TIMESTAMP() WHERE APPLY_ID = ?',
+                [state, reason, digest(after) if after is not None else None, apply_id])
+        execute(session, 'UPDATE ' + CORE + 'REMEDIATION_BUNDLES SET STATUS = ?, REASON = ?, '
+                'UPDATED_AT = CURRENT_TIMESTAMP() WHERE APPLY_ID = ?', [state, reason, apply_id])
 
 
 def apply(session, apply_id, proposal_hash, token, client_receipt=''):
@@ -201,6 +211,8 @@ def apply(session, apply_id, proposal_hash, token, client_receipt=''):
         actual = target_spec(session, target)
         if pending['KIND'] == 'APPLY' and not verify(actual, actions):
             raise ValueError('VERIFY_FIX_NOT_PRESENT')
+        if pending.get('SELECTION_ID') and digest(actual) != digest(desired):
+            raise ValueError('VERIFY_BUNDLE_MISMATCH')
         if pending['KIND'] == 'ROLLBACK' and digest(actual) != digest(desired):
             raise ValueError('VERIFY_RESTORE_MISMATCH')
     except Exception as exc:
@@ -218,9 +230,15 @@ def apply(session, apply_id, proposal_hash, token, client_receipt=''):
     result = {'apply_id': apply_id, 'status': 'APPLIED', 'kind': pending['KIND'], 'target': target,
               'case_id': pending.get('CASE_ID'), 'tools_now': tool_names(actual),
               'spec_matches_preview': digest(actual) == digest(desired)}
+    if pending.get('SELECTION_ID'):
+        result.update(selection_id=pending['SELECTION_ID'], case_ids=decoded(pending['CASE_IDS']),
+                      retest_status='WAITING_FOR_SELECTION_DECISIONS')
+        return result
     if pending['KIND'] == 'ROLLBACK':
         finish_rolled = 'UPDATE ' + CORE + "REMEDIATION_APPLIES SET STATUS = 'ROLLED_BACK', UPDATED_AT = CURRENT_TIMESTAMP() WHERE APPLY_ID = ?"
         execute(session, finish_rolled, [pending['ROLLBACK_OF']])
+        execute(session, 'UPDATE ' + CORE + "REMEDIATION_BUNDLES SET STATUS = 'ROLLED_BACK', "
+                'UPDATED_AT = CURRENT_TIMESTAMP() WHERE APPLY_ID = ?', [pending['ROLLBACK_OF']])
         return result
     original = campaign(session, pending['CAMPAIGN_ID'])
     remaining = remaining_fixes(decoded(original['PROPOSAL']) or {}, actual,
@@ -248,7 +266,7 @@ def start_retest(session, original, request_key):
 
 
 def history(session, campaign_id):
-    found = rows(session, 'SELECT APPLY_ID, KIND, CASE_ID, RECIPE_ID, STATUS, REASON, APPLIED_BY, CLIENT_RECEIPT, '
+    found = rows(session, 'SELECT APPLY_ID, KIND, CASE_ID, CASE_IDS, SELECTION_ID, RECIPE_ID, STATUS, REASON, APPLIED_BY, CLIENT_RECEIPT, '
                  'RETEST_CAMPAIGN_ID, CREATED_AT, CONSUMED_AT FROM ' + CORE +
                  'REMEDIATION_APPLIES WHERE CAMPAIGN_ID = ? ORDER BY CREATED_AT', [campaign_id])
     return [{key: (str(value) if key in ('CREATED_AT', 'CONSUMED_AT') and value is not None else value)

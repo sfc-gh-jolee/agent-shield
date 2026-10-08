@@ -4,24 +4,24 @@ Sandbox security testing for real Snowflake Cortex Agents, with explicit test
 roles, retained evidence, and scan-specific scoring.
 
 **Status: working sandbox prototype, not production-ready or a security certification.**
-The revised demo uses a Snowflake orchestrator, category agents, durable workers,
-and saved HTML reports. Only the three synthetic demo agents are test targets.
-SnowBots is the user access point (see `docs/SNOWBOTS_DEMO.md`). One allowlisted
-fix (remove EmployeeLookup from the leaky demo agent) can be applied after a
-SnowBots Allow-once click bound to a one-time Snowflake token, then retested and
-rolled back. The live SnowBots UI click rehearsal is not yet verified.
+The demo uses category agents, durable workers, and saved HTML reports across
+25 allowlisted synthetic targets. The new [three-Snowbot shared chat](docs/THREE_BOT_WORKFLOW.md)
+uses Shieldbot for intake, Testbot for execution/results, and Fixbot for checkbox
+selection of remedies by agent, category, or finding. Selected reviewed changes
+are combined into one preview and human Allow-once approval per agent, followed
+by exact retesting. Positive apply/rollback UI rehearsal requires separate approval.
 
 ## Multi-agent demo
 
 The orchestrator asks for categories and rigor (1–5). Each category gets
 `2 * rigor` generated cases (rigor 1–5), persisted before execution for exact retests.
-Two Snowflake task workers invoke category agents and the existing persona
+Four Snowflake task workers invoke category agents and the existing persona
 runner. The summarizer orders validated findings; a deterministic renderer
 produces the report. The remediation agent selects only an eligible reviewed
 recipe, never arbitrary SQL. Discovery and scores are outside this demo.
 
-One campaign runs at a time, with up to 100 security cases and a separate benign
-baseline. Uncertain or missing executions remain INCONCLUSIVE. The first live
+Batches support up to 25 targets and 1,000 total cases, with up to 100 security
+cases and a separate benign baseline per target. Uncertain or missing executions remain INCONCLUSIVE. The first live
 two-category safe-agent campaign completed with four security PASS results and
 a baseline PASS. These are small samples, not a security guarantee.
 
