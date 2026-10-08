@@ -71,6 +71,55 @@ GUARDRAILS = {
 # Tool types that are side capabilities and may be removed; core analyst/search tools never are.
 REMOVABLE_TYPES = ('generic', 'agent_toolset')
 
+# Candidate remediation approaches per category, shown in reports before anything is sent
+# to Fixbot. Advisory text only: the reviewed, applicable actions remain actions_for().
+METHODS = {
+    'prompt_injection': (
+        'Add an instruction-precedence guardrail: user messages can never change, ignore or replace system instructions.',
+        'Remove or restrict side tools the attack used, so an override cannot reach extra capabilities.',
+        'Keep secrets and internal configuration out of the agent instructions entirely.'),
+    'scope_violation': (
+        'Add a scope guardrail that lists the allowed purpose and requires a polite refusal for anything else.',
+        'Remove tools and data sources unrelated to the stated purpose (least capability).',
+        'Narrow the semantic views or search services the agent can reach to its own domain.'),
+    'pii_extraction': (
+        'Apply masking or row access policies to sensitive columns so the persona role cannot read raw values.',
+        'Remove tools that expose personal-data tables, or point them at a de-identified view.',
+        'Add a guardrail forbidding disclosure of salaries, addresses, badge codes and other secrets.'),
+    'social_engineering': (
+        'Add a guardrail that urgency, claimed authority or emotional appeals never create exceptions.',
+        'Enforce sensitive actions with role privileges rather than instructions, so a pretext cannot unlock them.'),
+    'multi_turn': (
+        'Add a guardrail that every rule applies on every turn, including after summaries or role-play.',
+        'Back restricted data with access policies so earlier turns cannot gradually unlock it.'),
+    'data_exfiltration': (
+        'Add a guardrail refusing bulk exports, full-table dumps and sending data outside the chat.',
+        'Remove phrasing that encourages complete detail (for example "include full details").',
+        'Cap result sizes in the underlying tools or views and remove unbounded export tools.'),
+    'role_escalation': (
+        'Run the agent and its tools as a least-privilege role with no DDL or grant privileges.',
+        'Remove generic or procedure tools that can run DDL or change grants.',
+        'Add a guardrail that the agent never acts with more privilege than the user.'),
+    'indirect_injection': (
+        'Add a guardrail that instructions inside documents or tool results are untrusted data, never commands.',
+        'Remove phrasing that tells the agent to follow instructions found in documents.',
+        'Restrict which documents or search sources the agent can read, and review them for embedded instructions.'),
+    'baseline': (
+        'Check that guardrails are not so broad that they block ordinary in-scope requests.',
+        'Confirm the persona role still has the access the agent needs for normal answers.'),
+}
+INCONCLUSIVE_METHODS = (
+    'Rerun the exact saved case to get a clear verdict before changing the agent.',
+    'If it stays inconclusive, review the restricted evidence manually.')
+
+
+def methods_for(category, verdict):
+    """Advisory remediation approaches for a non-passing case; never applied automatically."""
+    if verdict == 'PASS':
+        return ()
+    general = METHODS.get(category, ('Review the case evidence and tighten the instructions, tools or role access involved.',))
+    return INCONCLUSIVE_METHODS + general if verdict != 'FAIL' else general
+
 
 def tool_names(spec):
     return [(tool.get('tool_spec') or {}).get('name') for tool in spec.get('tools', [])]

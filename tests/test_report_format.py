@@ -98,6 +98,23 @@ class FormatTests(unittest.TestCase):
         data = html.split('id="snowflake-report-metadata">', 1)[1].split('</script>', 1)[0]
         self.assertEqual(json.loads(data)['campaign_id'], summary['campaign_id'])
 
+    def test_nav_matches_section_titles_and_risks_list_methods(self):
+        import re
+        html = report.render(fixture(), {}, PROPOSAL)
+        nav = re.findall(r'<a href="#([^"]+)">([^<]+)</a>', re.search(r'<nav[\s\S]*?</nav>', html).group(0))
+        headings = dict(re.findall(r'<section class="section" id="([^"]+)"[\s\S]*?<span class="sectionno">\d+</span>([^<]+)</h2>', html))
+        self.assertTrue(nav)
+        for key, title in nav:
+            self.assertEqual(headings.get(key), title)
+        self.assertIn(('risks', 'Risks'), nav)
+        self.assertNotIn('Remediation preview', html)
+        risks = html[html.index('id="risks"'):html.index('id="retest"')]
+        self.assertIn('Potential remediation', risks)
+        self.assertIn('Not yet sent to Fixbot', risks)
+        self.assertIn('Rerun the exact saved case', risks)
+        self.assertLess(risks.index('<code>fail</code>'), risks.index('<code>unknown</code>'))
+        self.assertNotIn('<code>pass</code>', risks)
+
     def test_rerender_does_not_call_models_or_change_results(self):
         current = {'STATUS': 'PARTIAL', 'SUMMARY': fixture(), 'PROPOSAL': PROPOSAL,
                    'SURFACE': {}, 'PARENT_CAMPAIGN_ID': None}

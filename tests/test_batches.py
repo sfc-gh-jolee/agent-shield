@@ -80,6 +80,14 @@ class BatchTests(unittest.TestCase):
         self.assertNotIn('<img', html)
         self.assertIn('No validated catch rate', html)
         self.assertIn('Relevant-category finding', html)
+        nav = html[html.index('<nav'):html.index('</nav>')]
+        for title in ('Agent by category', 'Coverage limitations', 'Risks', 'Per-agent results'):
+            self.assertIn('>' + title + '</a>', nav)
+        self.assertIn('<h3>Limitations</h3>', html)
+        self.assertIn('Expected weak categories', html)
+        risks = html[html.index('id="risks"'):html.index('id="retest"')]
+        self.assertIn('Potential remediation', risks)
+        self.assertNotIn('Separate approval per child', html)
 
     def test_cancellation_dispatches_finalization(self):
         with patch.object(batches, 'batch', return_value={'STATUS': 'QUEUED'}), \

@@ -17,6 +17,23 @@ def reason_cell(row):
     return kit.esc(sentence) + ('<br><code class="reasoncode">' + kit.esc(code) + '</code>' if code else '')
 
 
+def risk_cards(rows, labels, prefix=''):
+    """One card per non-passing case with candidate remediation approaches (advisory only)."""
+    from agentshield_fixes import methods_for
+    if not rows:
+        return '<p>' + kit.pill('done', 'No risks observed') + ' Every recorded case passed. This covers only the observed cases.</p>'
+    cards = ''.join(
+        '<article class="card gap"><h3>' + kit.esc(prefix) + kit.esc(labels.get(row['CATEGORY'], row['CATEGORY'])) + ' ' +
+        kit.pill(state(row), row.get('VERDICT') or 'UNRESOLVED') + '</h3><p><code>' + kit.esc(row['CASE_ID']) + '</code></p>'
+        '<p><b>What happened:</b> ' + reason_cell(row) + '</p><p><b>Potential remediation:</b></p><ul>' +
+        ''.join('<li>' + kit.esc(method) + '</li>' for method in methods_for(row['CATEGORY'], row.get('VERDICT'))) +
+        '</ul>' + kit.pill('drop', 'Not yet sent to Fixbot') + '</article>'
+        for row in sorted(rows, key=lambda row: row.get('VERDICT') != 'FAIL'))
+    return ('<p class="note">Potential remediation lists candidate approaches for each risk. Nothing is sent to Fixbot '
+            'or applied from this report; Fixbot prepares reviewed changes only after you select them, and each '
+            'needs human approval.</p><div class="grid">' + cards + '</div>')
+
+
 def render(summary, surface, proposal, comparison=None):
     text = kit.esc
     request = summary['request']
@@ -37,7 +54,7 @@ def render(summary, surface, proposal, comparison=None):
     group_ids = {group: 'group-' + str(index) for index, group in enumerate(groups)}
     labels = {group: group.replace('_', ' ').title() for group in groups}
     sections = [('results', 'Observed results'), ('surface', 'Attack surface'),
-                ('remediation', 'Remediation preview'), ('retest', 'Exact-case retest'), ('faq', 'Reading this report')]
+                ('risks', 'Risks'), ('retest', 'Exact-case retest'), ('faq', 'Reading this report')]
     metadata = {'generated': summary.get('updated_at', summary.get('created_at', 'Unknown')),
                 'intent': 'Shield Bot sandbox campaign evidence summary', 'campaign_id': summary['campaign_id'],
                 'dataSources': [{'type': 'table', 'name': 'AGENTSHIELD_DB.CORE.CAMPAIGNS'},
@@ -54,7 +71,7 @@ def render(summary, surface, proposal, comparison=None):
             ' recorded passes / ' + str(expected) + ' planned security cases. Baseline tracked separately.</p></aside></div>',
             '<div class="strip" aria-label="Report workflow">']
     for index, (key, label, owner) in enumerate((('results', 'Test', 'Category agents'), ('surface', 'Inspect', 'Surface mapper'),
-                                               ('remediation', 'Review', 'Human approval'), ('retest', 'Retest', 'Saved cases')), 1):
+                                               ('risks', 'Risks', 'Human approval'), ('retest', 'Retest', 'Saved cases')), 1):
         body.append('<a class="chip" href="#' + key + '"><span class="n">' + str(index) + '</span><span><b>' +
                     label + '</b><small>' + owner + '</small></span></a>')
     body.append('</div><div class="metaline"><span><b>Target</b> ' + text(request['target']) + '</span>'
@@ -108,14 +125,16 @@ def render(summary, surface, proposal, comparison=None):
         '<p><code>' + text(fix['case_id']) + '</code></p><p><b>Why:</b> ' + text(fix.get('why') or '') + '</p>'
         '<ul>' + ''.join('<li>' + text(change) + '</li>' for change in fix.get('changes', [])) + '</ul>' +
         kit.pill('blue', 'Ready for approval') + '</article>' for fix in fixes)
-    body.append(kit.section('remediation', 3, 'Remediation preview',
-        '<div class="grid"><article class="card"><h3>Review proposal</h3>' + kit.pill('val', proposal['status']) +
+    risky = [row for row in cases if row.get('VERDICT') != 'PASS']
+    body.append(kit.section('risks', 3, 'Risks',
+        risk_cards(risky, labels) +
+        '<div class="grid" style="margin-top:14px"><article class="card"><h3>Reviewed fix proposal</h3>' +
+        kit.pill('val', proposal['status']) +
         '<p>' + text(proposal['impact']) + '</p></article><article class="card"><h3>Application gate</h3>' +
         kit.pill('drop', 'Not applied') + '<p>Each fix needs its own human approval. No executable fix control or '
         'credentials are embedded in this file.</p></article></div>' +
-        ('<div class="grid" style="margin-top:14px">' + fix_cards + '</div>' if fixes else
-         '<details open><summary>Proposed operation</summary><p>No failed or inconclusive cases need a fix.</p></details>'),
-        str(len(fixes)) + ' fix(es) / human approval each'))
+        ('<div class="grid" style="margin-top:14px">' + fix_cards + '</div>' if fixes else ''),
+        str(len(risky)) + ' risk(s) / ' + str(len(fixes)) + ' reviewed fix(es)'))
     if comparison:
         comparison_html = '<p>Parent campaign: <code>' + text(comparison['parent_campaign_id']) + '</code></p>' + kit.table(
             ['Case', 'Before', 'After'], [{'cells': ['<code>' + text(row['case_id']) + '</code>',

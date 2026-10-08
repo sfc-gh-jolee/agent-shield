@@ -55,6 +55,9 @@ def filters(groups, count):
 def page(metadata, content):
     metadata['formatter'] = FORMAT_VERSION
     serialized = json.dumps(metadata, ensure_ascii=True).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+    # The nav reuses each report's own section titles so labels always match the headings.
+    nav = ''.join('<a href="#' + esc(item['id']) + '">' + esc(item['title']) + '</a>'
+                  for item in metadata.get('sections', []) if item.get('nav', True))
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             '<meta name="snowflake-source" content="cortex-agent-authored">'
@@ -63,8 +66,7 @@ def page(metadata, content):
             '<style>' + CSS + '</style></head><body>'
             '<header class="topbar"><div class="wrap topinner"><a class="brand" href="#overview">'
             '<span class="brand-mark" aria-hidden="true">SB</span> Shield Bot / Report</a>'
-            '<nav aria-label="Sections"><a href="#results">Results</a><a href="#surface">Surface</a>'
-            '<a href="#remediation">Remediation</a><a href="#retest">Retest</a></nav>'
+            '<nav aria-label="Sections">' + nav + '</nav>'
             '<div class="tools interactive"><button type="button" id="theme-button" aria-label="Switch to dark theme">Dark</button>'
             '<button type="button" id="print-button">Print</button></div></div></header>'
             '<main class="wrap">' + content + '</main><script>' + JS + '</script></body></html>')
