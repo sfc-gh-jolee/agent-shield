@@ -16,7 +16,8 @@ explicit connection and expected account locator.
 Shieldbot asks for groups or individual agents and rigor. Individual selection
 is one numbered checkbox page per domain ("Sales agents (page 1 of 5)"), each with a
 "None of these" option, all asked in a single round (`agent_pages` in `--list-agents`).
-Rigor options show tests per category (2 x rigor). The three-bot shared
+Rigor options read as the level followed by tests per category, for example
+`1 (2 tests per category)` (2 x rigor). The three-bot shared
 chat and checkbox-style intake cards have been exercised in the local UI.
 Testbot receives a versioned handoff, while Fixbot owns selective remediation.
 Definitions are updated through the local API without editing SnowBots source.

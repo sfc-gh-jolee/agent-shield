@@ -27,7 +27,7 @@ class TeamTests(unittest.TestCase):
         self.assertIn('NEVER the end of intake', shield)
         self.assertIn('agent_pages', shield)
         for rigor in range(1, 6):
-            self.assertIn("'%d - %d tests per category'" % (rigor, 2 * rigor), shield)
+            self.assertIn("'%d (%d tests per category)'" % (rigor, 2 * rigor), shield)
         test = payload['bots'][1]['description']
         self.assertIn('label exactly "shieldbot-<batch_id>.html"', test)
         self.assertIn('ending in .html', test)
