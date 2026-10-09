@@ -1,4 +1,28 @@
-# Shield Bot v2 validation log
+# Shield Bot validation history
+
+These are dated checkpoints, not current installation instructions. Statements
+about pending work describe the state at that checkpoint; later entries and
+linked reports supersede them. See the [operator runbook](SNOWBOTS_DEMO.md) to run
+the current workflow and [campaign changelog](CAMPAIGN_CHANGELOG.md) for changes.
+
+## 2026-10-09: department repairs and report delivery
+
+- The report includes a category test-plan table; the user reviewed its exported
+  HTML. The team retains the initial attachment and uses chat-only retest summaries.
+- Offline checkpoint: 143 primary tests and 146 suite tests passed.
+- Approved Sales and Support repairs were applied, exact payloads were replayed,
+  and both agents were rolled back to their pre-fix configurations. Support's
+  rigor-1 retest passed all 16 security cases and its baseline. Sales retained two
+  inconclusives. HR had no supported repair for its failure, and Finance had five
+  inconclusives. The four-agent qualification gate was not met.
+- See [the full rehearsal evidence](DEPARTMENT_REHEARSAL.md) for counts and
+  limits. These results do not qualify rigor 2 or guarantee future outcomes.
+
+## 2026-10-08: batches and shared-chat integration
+
+See [batch validation](BATCH_CAMPAIGNS.md#live-validation-2026-10-08) and the
+[team checkpoint](THREE_BOT_WORKFLOW.md#verification-checkpoint-2026-10-08)
+for recorded findings, HTML delivery, handoffs, selection, and denial checks.
 
 ## 2026-10-06: discovery and execution milestone
 
@@ -48,7 +72,7 @@ from this public log; raw evidence remains in the sandbox.
   safe baseline/multi-turn scan: 100, one security pass; baseline excluded.
   These different, small samples do not establish comparable overall posture.
 - No agent calls or grant changes made by mapping/scoring verification.
-- Added self-contained `AGENTSHIELD_V2_CHANGES.html`: reviewed in the browser;
+- Added a self-contained historical comparison page (now retired): reviewed in the browser;
   metadata anchors resolve, no external assets, 360px main layout does not spill
   outside its container (comparison table scrolls within its own wrapper).
 

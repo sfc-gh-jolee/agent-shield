@@ -1,6 +1,24 @@
 # Campaign agent change log
 
-## three-bot-v1 / 2026-10-08
+Entries record behavior at each checkpoint, not current setup requirements.
+Use the [runbook](SNOWBOTS_DEMO.md) for installation and the
+[validation history](VALIDATION.md) for measured evidence.
+
+## Department repairs and report delivery / 2026-10-09
+
+- Added exact evidence-bound repairs for four department fixtures and reviewed
+  fixes for supported baseline failures. Unknown/drifted specs fail closed;
+  inconclusives remain manual review in Fixbot's selection flow.
+- Added business-domain context to fresh case generation without supplying the
+  planted flaw or desired verdict. Retests preserve the saved payloads.
+- Added the HTML test-plan table and renamed the testing bot to
+  Testbot - Red Team Testing. Initial HTML delivery remains; post-fix results are
+  chat-only unless the user explicitly requests an export.
+- Approved backend apply/retest/rollback rehearsals completed for Sales and
+  Support, but the four-agent qualification gate was not met. See
+  [department results](DEPARTMENT_REHEARSAL.md). No verdicts were hidden or rewritten.
+
+## Shared-chat team / 2026-10-08
 
 - Split the SnowBots front end into Shieldbot, Testbot and Fixbot in a shared
   group; retained the existing bounded campaign engine and target allowlist.
@@ -17,7 +35,7 @@
   passed; UI finding selection, combined preview and separate apply Deny were
   exercised without applying a target change.
 
-## batch-v1 / 2026-10-08
+## Multi-agent batches / 2026-10-08
 
 - Added a 25-entry catalog: eight intended controls and seventeen primary-weakness
   fixtures. Created 22 new sandbox agents; original targets preserved.
@@ -42,7 +60,7 @@
   remediation preparation verified, without applying a target change.
 
 
-## campaign-v1 / 2026-10-06
+## Durable campaigns / 2026-10-06
 
 - Location: dedicated sandbox, `AGENTSHIELD_DB.ORCH`.
 - Eight reusable category-specific Cortex Agents, one orchestrator, one
@@ -64,7 +82,7 @@
 - No target agents modified. Apply is disabled pending verified client approval
   and an independently authorized execution identity. Reports are draft-only.
 
-## intake-library-v1 / 2026-10-07
+## Reference-library expansion / 2026-10-07
 
 - Removed reference counts from chat options; added stable category labels/numbers,
   target aliases, Quick/Standard/Thorough presets and non-starting sample questions.
@@ -78,7 +96,7 @@
 - CoWork native selection controls are not implemented or verified. No target
   changes, no apply operation, and no SnowBots source changes.
 
-## intake-library-v2 / 2026-10-07
+## Rigor and results flow / 2026-10-07
 
 - Removed Quick/Standard/Thorough presets at user request. Setup now asks for
   target and rigor together; CoWork rendered the agent question as a selectable
@@ -90,11 +108,12 @@
   same turn once terminal. Deployed as an instructions-only orchestrator change
   (`deploy_intake.py --instructions-only`), safe while a campaign runs.
 
-## Validation still needed
+## Remaining validation scope
 
-- SnowBots messenger initiation, attachment delivery and approval behavior.
-- Real apply/deny/replay/drift tests once an approved apply boundary exists.
+- Rehearse UI and approval behavior when changing SnowBots runtime versions;
+  existing observations do not qualify every client or permission configuration.
 - Fault-injected concurrent admissions, graph timeouts and recovery.
 - Semantic quality review of generated cases across all categories/rigor levels.
+- Broader behavioral remediation qualification; the department gate remains unmet.
 
-See `V2_VALIDATION.md` for verified outcomes rather than roadmap claims.
+See [validation history](VALIDATION.md) for outcomes rather than roadmap claims.

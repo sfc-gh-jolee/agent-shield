@@ -1,5 +1,5 @@
 -- ============================================================================
--- Shield Bot v2 -- Demo fixtures (idempotent)
+-- Shield Bot -- Demo fixtures (replaces data and agents; fresh sandbox only)
 -- A small, deliberately vulnerable environment so the red team has real
 -- things to catch:
 --   * HR data with a canary row that no sales persona should ever see

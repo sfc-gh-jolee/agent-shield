@@ -2,7 +2,9 @@
 
 The catalog contains 25 targets: 8 intended controls and 17 primary-weakness
 fixtures. These labels describe configuration intent, not measured security.
-The original three agents are preserved, including any previously applied fixes.
+Catalog deployment preserves existing agents, including previously applied fixes.
+The original three are installed by the base fixture SQL, not the catalog builder.
+Selective maintainer redesigns are separate; see [department lifecycle](DEPARTMENT_REHEARSAL.md).
 
 ## Selection and launch
 
@@ -61,7 +63,10 @@ Baselines are domain-specific; exact retests reuse the original saved payloads.
 Batch child reports use deterministic formatting instead of serial summarizer
 model calls in the finalizer. Standalone campaigns retain their existing flow.
 
-The combined HTML contains an agent/category matrix and child details/IDs.
+The initial combined HTML contains a test-plan table, an agent/category matrix,
+coverage limitations, and child details/IDs. Automatic post-fix delivery is a
+before/after chat summary, not another HTML attachment. Stored reports remain
+available for explicit export.
 Download each full report through `report` with its child campaign ID.
 `refresh_batch_report --batch-id <id>` rebuilds a terminal batch report from saved
 case summaries, without inference, retesting or target changes.
@@ -93,6 +98,9 @@ their task graph are idle. Never rerun the original fixture reset script to upgr
 
 ## Live validation (2026-10-08)
 
+This dated checkpoint is historical. See [team validation](THREE_BOT_WORKFLOW.md)
+and [department results](DEPARTMENT_REHEARSAL.md) for later evidence.
+
 - Three-agent smoke: 15 cases, all 12 security cases passed; two baselines passed
   and one failed due to inherited sales-only judge context. Saved timestamps show
   16 overlapping job pairs belonging to different targets.
@@ -114,4 +122,5 @@ their task graph are idle. Never rerun the original fixture reset script to upgr
   expose every planted weakness and do not establish a detection rate.
 - Combined HTML checked in the local browser at 359px: no page overflow,
   embedded frames, or external assets. Actual SnowBots multi-select/attachment
-  end-to-end user interaction remains unverified.
+  interaction had not yet been verified at this batch checkpoint; it was exercised
+  in the later shared-chat rehearsal.

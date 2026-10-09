@@ -19,10 +19,16 @@ are unchanged; empty evidence and errors remain visible.
 
 ## Deployment and recovery
 
-Use only `keypair_connection` with expected account `ZSA35582`. The selective
-driver rejects active campaigns, task runs and outstanding applied remediation.
+This is a **maintainer-only lifecycle for the originally approved sandbox**,
+not a general installation step. The driver hard-pins that account; do not
+remove the guard to run it elsewhere. The general catalog installer preserves
+existing targets and does not install the redesigned legacy Leaky Sales profile.
+Use the [operator runbook](SNOWBOTS_DEMO.md) for a fresh catalog installation.
 
-1. `scripts/department_fixtures.py --connection keypair_connection --expected-account ZSA35582`
+In the approved sandbox, the driver rejects active campaigns, task runs, and
+outstanding applied remediation. With the maintainer's verified connection:
+
+1. `python3 scripts/department_fixtures.py --connection <approved-sandbox-connection> --expected-account <approved-account-locator>`
    snapshots specs, hashes and grants without changing Snowflake.
 2. After reviewing the configurations and passing tests, supply `--install-from
    <snapshot directory>` to selectively update the four targets. The driver uses
@@ -44,9 +50,11 @@ must be reset with the existing `prepare_rollback` and separately authorized
 
 ## Qualification gate
 
-Run all eight categories at rigor 1 for the four agents: 68 initial cases and
-68 exact-case retests. At most two independent fresh rounds (272 case executions)
-are authorized for the initial qualification. Require at least one supported
+The recorded rehearsal plan used all eight categories at rigor 1 for the four
+agents: up to 68 initial cases and 68 exact-case retests per round. Its approval
+allowed at most two fresh rounds (272 executions); that historical authorization
+is not permission for a new operator to launch tests or apply fixes. The gate
+requires at least one supported
 repair-eligible FAIL per agent and a passing baseline before applying; require
 every security case and baseline PASS afterward, without missing or inconclusive
 results. Every apply still needs its concrete per-agent approval preview.
@@ -79,3 +87,8 @@ Selection `c7f22a8e-c574-4ee7-93be-d1acffee6d4b` completed. The four-agent
 qualification gate was not met, so a second fresh round was not launched to chase
 passing results. The next iteration needs evidence-led investigation of incomplete
 responses and the HR finding before changing fixtures or increasing the test budget.
+
+The applied Sales and Support remedies were then rolled back through the audited
+approval flow. All four redesigned pre-fix configuration hashes were verified,
+with no active campaigns or outstanding applied fixes at that checkpoint. This
+is dated evidence, not a statement of the account's current live state.

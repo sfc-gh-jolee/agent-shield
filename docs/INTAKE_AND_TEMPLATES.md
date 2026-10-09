@@ -2,18 +2,19 @@
 
 ## Low-typing setup
 
-Use `safe`, `leaky`, or `hr` as target aliases. Examples:
+Use the AgentShield group in SnowBots. Shieldbot lists all 25 targets in domain
+pages for individual selection, or offers catalog groups. Legacy aliases `safe`,
+`leaky`, and `hr` still resolve, but are not the whole catalog. Examples:
 
 - `Set up a scan, don't start it yet.` — the agent asks for target and rigor together.
 - `Set up leaky, rigor 3, all categories; do not start yet.`
 - `Customize: safe, categories 2 and 8, rigor 1; do not start yet.`
 
-There are no named presets (Quick/Standard/Thorough were removed 2026-10-07 at
-user request). When target or rigor is missing, the orchestrator asks both as
-two questions; CoWork rendered the target question as a selectable choice in
-user testing. Rigor options are labeled with total cases for the current scope:
-all eight categories give 16 × rigor + 1, evenly spaced: 17, 33, 49, 65, 81
-for rigor 1–5. Each category gets `2 * rigor` cases. Rigor is capped at 5 so the
+There are no named rigor presets. Shieldbot asks selection mode (groups or
+individual agents) and rigor together, then shows the applicable selection cards.
+Rigor labels show tests per category, for example `2 (4 tests per category)`.
+All eight categories give `16 * rigor + 1` total cases per agent: 17, 33, 49, 65,
+81 for rigor 1-5. Each category gets `2 * rigor` cases. Rigor is capped at 5 so the
 largest all-category scan (80 security cases) stays under the self-imposed
 100-case guardrail, which bounds the one-hour worker timeout, single-call case
 generation budget, and cost. The cap is Shield Bot code, not a CoCo or Snowflake
@@ -29,21 +30,19 @@ Stable custom-category numbers:
 7. Privilege escalation
 8. Malicious instructions in documents
 
-The model maps these choices to canonical API identifiers. Direct API callers
+Shieldbot maps these choices to a versioned handoff; the client validates the
+canonical identifiers, budget, and intent again before dispatch. Direct API callers
 must still supply canonical target/category names and integer rigor. A bare
 number means rigor unless answering a category-selection question. Setup and
 options-only requests do not authorize dispatch; an explicit Start or complete
 run request does. The standalone CLI `chat` starts a fresh conversation, so
 include the prior choices when issuing Start through that client.
 
-The normal options payload no longer exposes template counts. Instructions
-request short coverage prose instead of an inventory table, reuse supplied
-choices and include only missing questions. Exact wording remains model-generated.
-Three non-starting sample questions are configured in the agent specification.
-Native custom radio buttons/checkbox inputs in CoWork are not verified or
-implemented. Starter questions and text choices are not multi-select forms.
-Open a fresh CoWork conversation to avoid the earlier inventory response shaping
-the next answer. Actual CoWork rendering of starter questions is not yet tested.
+The normal options payload does not expose reference-template counts. SnowBots
+question cards and shared-chat handoffs have been exercised locally. Exact prose
+remains model-generated. The standalone Cortex orchestrator's sample questions
+and `chat` interface are compatibility options, not substitutes for the three-bot
+group or evidence of native forms on other clients.
 
 ## Library expansion
 
@@ -70,11 +69,13 @@ reference policy classification, not a claim that a vulnerability was observed.
 
 ## Deployment and verification
 
-For a fresh campaign deployment, follow `SNOWBOTS_DEMO.md`. For the existing
-sandbox intake/library update, first build the campaign and template artifacts,
-then run:
+For fresh deployment, follow [the runbook](SNOWBOTS_DEMO.md). The updater below
+is for the existing reference library and standalone Cortex orchestrator, not
+SnowBots instructions. First build the artifacts:
 
 ```bash
+python3 scripts/build_campaigns.py
+python3 scripts/build_templates.py
 python3 scripts/deploy_intake.py --connection <sandbox_connection> --expected-account <locator>
 # Instruction-only changes (safe while a campaign runs; no module upload or migration):
 python3 scripts/deploy_intake.py --connection <sandbox_connection> --expected-account <locator> --instructions-only
@@ -100,6 +101,10 @@ unchanged library. Keep snapshots out of public Git.
 indirect-injection check, validates two cases and reports reference IDs/input
 sizes without printing generated prompts. It does not create campaigns or call
 test-target agents. It incurs a category-agent inference call.
+
+Version fields and existing template IDs are stable migration/evidence keys,
+not product branding. Do not rename them to clean up documentation: saved
+campaigns and insert-only migrations depend on those identities.
 
 References:
 - [Agent configuration and sample questions](https://docs.snowflake.com/en/user-guide/snowflake-cortex/snowflake-cowork/build-agents)

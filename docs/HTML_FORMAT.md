@@ -24,10 +24,10 @@ Both modules are included in the Snowflake deployment by `build_campaigns.py`.
   No raw response, request prompt, SQL execution control or credential is added.
 - HTML is self-contained. Small, inspected inline JavaScript only controls the
   theme, filters and browser printing; it has no network calls, storage or eval.
-- With scripts disabled (including SnowBots' default sanitized preview), all
-  report content is visible and interactive controls are hidden. Downloaded
-  HTML offers the controls when the browser permits scripts. Actual SnowBots
-  rendering remains subject to its sanitizer and has not been rehearsed.
+- With scripts disabled, all report content is visible and interactive controls
+  are hidden. Downloaded HTML offers the controls when the browser permits scripts.
+  Local SnowBots attachment delivery and the exported report have been reviewed;
+  embedded-preview behavior still depends on the runtime's sanitizer.
 - Printing shows all rows even if a filter was active and forces light colors.
 - Timeline dates and completion ticks are not invented. The strip links to
   report sections; only recorded timestamps and states are presented.
@@ -35,6 +35,10 @@ Both modules are included in the Snowflake deployment by `build_campaigns.py`.
   is not a customer-sanitized report; review identifiers before external sharing.
 
 ## Refresh behavior
+
+The initial scan is exported and attached automatically. Post-fix retests end
+with chat-only comparisons unless an export is explicitly requested; this does
+not disable backend report generation or evidence retention.
 
 New campaign reports use the deployed formatter automatically. Existing reports
 are snapshots and do not silently change. `RERENDER_CAMPAIGN_REPORT` rebuilds an

@@ -3,7 +3,7 @@
 Open the **AgentShield** group, not the old Shieldbot direct chat:
 
 - **Shieldbot** collects agents/groups, rigor 1-5, and optional categories.
-- **Testbot** validates the handoff, launches the existing Cortex campaign workers,
+- **Testbot - Red Team Testing** validates the handoff, launches the existing Cortex campaign workers,
   monitors saved state, and posts the initial scan summary and HTML attachment.
   Post-fix retests end with a short chat summary, not another HTML attachment.
 - **Fixbot** offers all eligible remedies, selected agents, or categories and
@@ -44,7 +44,8 @@ the previous per-agent bundle snapshot and needs its own approval.
 
 ## Install
 
-Use the established demo sandbox only and a maintenance window with no new scans.
+For fresh setup, use the [operator runbook](SNOWBOTS_DEMO.md). The commands below
+update an already installed sandbox during a maintenance window with no new scans.
 Deployment checks the expected account, active campaigns, applying changes, and
 task runs. It snapshots existing modules and procedure definitions privately and
 adds selection tables/procedures without replacing Cortex agents or tasks.
@@ -99,6 +100,10 @@ per-agent approval; plan approval alone never authorizes changing a target.
 
 ## Verification checkpoint (2026-10-08)
 
+This is historical evidence. Later approved backend apply/retest/rollback results
+are recorded in [the department rehearsal](DEPARTMENT_REHEARSAL.md); those do not
+imply every UI permission path or agent is qualified.
+
 - 126 offline regression tests pass, covering the new handoffs, selection validation, bundle
   gates, denial, selective retest scheduling, and existing legacy behavior.
 - Live shared-chat smoke: Shieldbot setup-only produced no scan; subsequent
@@ -119,5 +124,6 @@ per-agent approval; plan approval alone never authorizes changing a target.
   crew handoffs and `@handle:` text could route work. Shared bot instructions now
   require one routing mechanism and suppress acknowledgement loops. Stable keys
   prevented duplicate campaigns during the rehearsal.
-- Positive bundled apply, exact retest after that apply, and rollback remain
-  unverified live until a human approves a concrete proposed target change.
+- Positive bundled apply, exact retest after that apply, and rollback were not
+  exercised at this checkpoint. Later explicit approvals enabled the backend
+  rehearsals linked above.

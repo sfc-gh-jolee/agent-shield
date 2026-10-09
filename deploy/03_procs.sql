@@ -1,4 +1,4 @@
--- Shield Bot v2: sandbox discovery and real-agent evaluation.
+-- Shield Bot: sandbox discovery and real-agent evaluation.
 -- Run after 02_core.sql using the sandbox connection. No agent/grant changes.
 USE ROLE ACCOUNTADMIN;
 USE WAREHOUSE AGENTSHIELD_WH;
@@ -270,7 +270,7 @@ def run_case(session, scan_id, agent, persona, template, canaries, resources):
 
 def run(session, agent_fqn, roles, categories, demo_only, template_id):
     agent = (agent_fqn or '').upper()
-    # These agents can execute tools. Limit v2's initial test runner to the demo.
+    # These agents can execute tools. Limit the synchronous runner to the demo.
     if agent not in ('AGENTSHIELD_DEMO.AGENTS.SAFE_SALES_AGENT',
                      'AGENTSHIELD_DEMO.AGENTS.LEAKY_SALES_AGENT',
                      'AGENTSHIELD_DEMO.AGENTS.HR_TOOLKIT_AGENT'):
