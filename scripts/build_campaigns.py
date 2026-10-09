@@ -21,11 +21,13 @@ def build(destination):
     shutil.copyfile(ROOT / 'src' / 'agentshield_html_kit.py', destination / 'agentshield_html_kit.py')
     shutil.copyfile(ROOT / 'src' / 'agentshield_remediation.py', destination / 'agentshield_remediation.py')
     shutil.copyfile(ROOT / 'src' / 'agentshield_fixes.py', destination / 'agentshield_fixes.py')
-    for module in ('agentshield_catalog', 'agentshield_batches', 'agentshield_batch_report', 'agentshield_selections'):
+    for module in ('agentshield_catalog', 'agentshield_batches', 'agentshield_batch_report', 'agentshield_selections',
+                   'agentshield_department_recipes'):
         shutil.copyfile(ROOT / 'src' / (module + '.py'), destination / (module + '.py'))
     modules = ('agentshield_evaluator', 'agentshield_campaigns', 'agentshield_report', 'agentshield_html_kit',
                'agentshield_remediation', 'agentshield_fixes', 'agentshield_catalog',
-               'agentshield_batches', 'agentshield_batch_report', 'agentshield_selections')
+               'agentshield_batches', 'agentshield_batch_report', 'agentshield_selections',
+               'agentshield_department_recipes')
     statements = ['USE ROLE ACCOUNTADMIN;', 'USE WAREHOUSE AGENTSHIELD_WH;']
     for module in modules:
         path = (destination / (module + '.py')).resolve()

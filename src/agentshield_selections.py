@@ -11,6 +11,7 @@ import agentshield_remediation as R
 from agentshield_batches import batch
 from agentshield_catalog import BY_FQN
 from agentshield_fixes import GUARDRAILS, apply_actions, fix_id, summarize_actions, tool_names
+from agentshield_department_recipes import action_valid
 
 SELECTIONS = C.CORE + 'REMEDIATION_SELECTIONS'
 BUNDLES = C.CORE + 'REMEDIATION_BUNDLES'
@@ -69,6 +70,8 @@ def selected_actions(campaign_id, fixes, ids):
                 valid = set(action) == {'type', 'tool'} and isinstance(action['tool'], str) and bool(action['tool'])
             elif action.get('type') == 'add_guardrail':
                 valid = set(action) == {'type', 'category'} and action['category'] in GUARDRAILS
+            elif action.get('type') == 'department_repair':
+                valid = action_valid(action)
             else:
                 valid = False
             if not valid:
@@ -105,7 +108,7 @@ def remediation_options(session, batch_id, campaign_ids=None):
         for fix in proposal.get('fixes', []):
             eligibility = ('MANUAL_REVIEW' if verdicts.get(fix['case_id']) != 'FAIL' else
                            'STALE' if drifted else 'APPLIED' if fix['case_id'] in done else
-                           'ALREADY_COVERED' if apply_actions(live, fix['actions']) == live else 'ELIGIBLE')
+                           'ALREADY_COVERED' if apply_actions(live, fix['actions'], target) == live else 'ELIGIBLE')
             fixes.append({key: fix.get(key) for key in ('case_id', 'fix_id', 'category', 'why')} |
                          {'changes': summarize_actions(fix['actions']), 'eligibility': eligibility})
         known = {fix['case_id'] for fix in fixes if fix['eligibility'] != 'MANUAL_REVIEW'}
@@ -230,7 +233,7 @@ def prepare_bundle(session, selection_id, campaign_id):
         if any(action['type'] == 'remove_tool' and action['tool'] in types and
                types[action['tool']] not in ('generic', 'agent_toolset') for action in actions):
             raise ValueError('CORE_TOOL_REMOVAL_REJECTED')
-        after = apply_actions(live, actions)
+        after = apply_actions(live, actions, target)
         if not after.get('tools'):
             raise ValueError('LAST_TOOL_REMOVAL_REJECTED')
         invalidate_pending(session, row)

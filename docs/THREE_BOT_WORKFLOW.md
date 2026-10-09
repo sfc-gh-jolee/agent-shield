@@ -4,7 +4,8 @@ Open the **AgentShield** group, not the old Shieldbot direct chat:
 
 - **Shieldbot** collects agents/groups, rigor 1-5, and optional categories.
 - **Testbot** validates the handoff, launches the existing Cortex campaign workers,
-  monitors saved state, and posts the summary and HTML attachment.
+  monitors saved state, and posts the initial scan summary and HTML attachment.
+  Post-fix retests end with a short chat summary, not another HTML attachment.
 - **Fixbot** offers all eligible remedies, selected agents, or categories and
   individual findings, using paginated checkbox cards. It prepares one combined
   preview and requests one separate human approval per agent.
@@ -25,6 +26,15 @@ Partial remediation is supported: retest the saved cases after all selected
 agents' decisions are resolved, even if unselected fixes remain. Retests do not
 start between agent approvals. Applied configuration is not proof of a passing
 test. Baseline regressions, manual-review cases, and inconclusives remain visible.
+
+The initial HTML report remains part of the demo. After fixes, Testbot monitors
+the exact-case retests, closes the selection with `finish_selection`, and reads
+the saved comparison through `selection_status` (`report_summary` only if needed).
+It posts one concise before/after chat summary with applied changes, remaining
+failures, skipped findings, inconclusives and the baseline outcome, then stops.
+The team must not offer, export, attach or retry a retest HTML report unless the
+user explicitly asks for one. Backend evidence and stored report generation are
+unchanged; only automatic chat-side export/attachment is suppressed.
 
 Multiple agent changes are not atomic. If the chat stops, resume using the saved
 selection ID; do not create a new selection to recover. An interrupted APPLYING

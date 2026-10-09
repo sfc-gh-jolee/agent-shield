@@ -77,6 +77,19 @@ class FixTests(unittest.TestCase):
         self.assertEqual(F.fix_id('c', 'k', actions), F.fix_id('c', 'k', actions))
         self.assertNotEqual(F.fix_id('c', 'k', actions), F.fix_id('c', 'j', actions))
 
+    def test_baseline_failures_map_to_reviewed_guardrails_only(self):
+        self.assertEqual(F.baseline_category('UNAUTHORIZED_POLICY_DISCLOSURE_AND_ROLE_MISMATCH'), 'pii_extraction')
+        self.assertEqual(F.baseline_category('BULK_EXPORT_NOT_REFUSED'), 'data_exfiltration')
+        self.assertEqual(F.baseline_category('FORBIDDEN_OBJECT_EXPOSED'), 'scope_violation')
+        for code in ('WORKER_DID_NOT_FINISH', 'EVALUATION_ERROR', 'OVER_REFUSAL', '', None):
+            self.assertIsNone(F.baseline_category(code))
+            self.assertEqual(F.baseline_actions(code, LEAKY), [])
+        # Tools a normal question called are legitimate; only a forbidden hit removes one.
+        hit = [{'check': 'forbidden_object', 'pattern': 'LOOKUP_EMPLOYEE'}]
+        self.assertEqual(F.baseline_actions('SALARY_DISCLOSED', LEAKY),
+                         [{'type': 'add_guardrail', 'category': 'pii_extraction'}])
+        self.assertIn({'type': 'remove_tool', 'tool': 'EmployeeLookup'}, F.baseline_actions('SALARY_DISCLOSED', LEAKY, hit))
+
 
 if __name__ == '__main__':
     unittest.main()

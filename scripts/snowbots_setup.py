@@ -36,6 +36,12 @@ TEAM_CONTRACT = (
     'means no change; a skipped selection card means ask again, not no fixes. '
     'A setup-intent handoff cannot be launched unchanged: when the user later requests Start, create '
     'a new launch-intent intake with the same scope and a new key, then delegate that contract.'
+    '\n\nREPORT DELIVERY: Keep the initial scan HTML attachment. Post-fix retests are chat-only '
+    'unless the user explicitly requests a retest report. Fixbot includes "chat-only results; no HTML export" '
+    'in its retest handoff. Testbot posts one concise saved before/after summary and stops. Shieldbot '
+    'and Fixbot must not request, offer, export, attach or retry a second HTML report, including an '
+    'earlier failed retest export. Continue reporting actual apply/retest failures, inconclusives and '
+    'baseline regressions; chat-only delivery never changes verdicts or hides testing errors.'
 )
 
 

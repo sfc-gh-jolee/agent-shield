@@ -155,6 +155,35 @@ def actions_for(category, spec, tools_called=(), hits=()):
     return actions
 
 
+# A failed baseline (normal question) reuses the reviewed guardrail of the security category its
+# judge reason points at. Errors, timeouts and plain over-refusals map to nothing: manual review.
+BASELINE_RULES = (
+    (r'WORKER_DID_NOT_FINISH|TIMEOUT|INCOMPLETE|^EVALUATION_|ERROR', None),
+    (r'BULK_EXPORT|DUMP|EXPORT|EXFIL', 'data_exfiltration'),
+    (r'CANARY|SECRET|BADGE|SALARY|PII|PERSONAL|EMPLOYEE|DISCLOS', 'pii_extraction'),
+    (r'EMBEDDED|INDIRECT', 'indirect_injection'),
+    (r'INJECTION|OVERRIDE|JAILBREAK|SYSTEM_PROMPT|PROMPT_LEAK|INSTRUCTIONS_REVEAL', 'prompt_injection'),
+    (r'ROLE|ESCALAT|PRIVILEGE|DDL|ADMIN', 'role_escalation'),
+    (r'SOCIAL|IMPERSONAT|URGENCY|AUTHORITY', 'social_engineering'),
+    (r'FORBIDDEN|SCOPE|OFF_TOPIC|OUT_OF', 'scope_violation'),
+)
+
+
+def baseline_category(reason):
+    code = (reason or '').upper()
+    for pattern, category in BASELINE_RULES:
+        if re.search(pattern, code):
+            return category
+    return None
+
+
+def baseline_actions(reason, spec, hits=()):
+    """Fix for a failed normal question. Tools it merely called are legitimate, so only a
+    forbidden-object or canary hit can remove one."""
+    category = baseline_category(reason)
+    return actions_for(category, spec, (), hits) if category else []
+
+
 def _text(spec, key):
     return ((spec.get('instructions') or {}).get(key) or '')
 
@@ -178,8 +207,14 @@ def _drop_tool_mentions(text, name):
     return ' '.join(kept)
 
 
-def apply_actions(spec, actions):
+def apply_actions(spec, actions, target=None):
     """Return a new spec with the actions applied; already-satisfied actions are no-ops."""
+    from agentshield_department_recipes import apply_recipe
+    recipes = [action for action in actions if action.get('type') == 'department_repair']
+    if recipes:
+        if len(recipes) != len(actions) or any(action != recipes[0] for action in recipes):
+            raise ValueError('DEPARTMENT_RECIPE_MIXED_ACTIONS')
+        return apply_recipe(spec, recipes[0], target)
     result = copy.deepcopy(spec)
     instructions = result.setdefault('instructions', {})
     for action in actions:
@@ -209,9 +244,16 @@ def apply_actions(spec, actions):
     return result
 
 
-def verify(spec, actions):
+def verify(spec, actions, target=None):
     """Post-apply check that every action holds on the live spec."""
+    from agentshield_department_recipes import verify_recipe
     for action in actions:
+        if action['type'] == 'department_repair':
+            if not verify_recipe(spec, action, target):
+                return False
+            continue
+        if action['type'] not in ('remove_tool', 'add_guardrail'):
+            return False
         if action['type'] == 'remove_tool' and (action['tool'] in tool_names(spec) or
                                                 action['tool'] in (spec.get('tool_resources') or {})):
             return False
@@ -221,9 +263,12 @@ def verify(spec, actions):
 
 
 def summarize_actions(actions):
+    from agentshield_department_recipes import describe_action
     parts = []
     for action in actions:
-        if action['type'] == 'remove_tool':
+        if action['type'] == 'department_repair':
+            parts.append(describe_action(action))
+        elif action['type'] == 'remove_tool':
             parts.append('Remove the ' + action['tool'] + ' tool')
         else:
             parts.append('Add guardrail: "' + GUARDRAILS[action['category']][0] + '"')

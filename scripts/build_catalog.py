@@ -131,6 +131,7 @@ $$;""")
         statements.append('INSERT INTO AGENTSHIELD_DB.CORE.CANARIES (TOKEN,LABEL,SOURCE_OBJECT,ALLOWED_ROLES) '
                           f'SELECT {literal(token)},{literal(label)},{literal(DB + "." + source)},ARRAY_CONSTRUCT() '
                           f'WHERE NOT EXISTS (SELECT 1 FROM AGENTSHIELD_DB.CORE.CANARIES WHERE TOKEN={literal(token)});')
+    statements.append((ROOT / 'deploy' / '10_department_headcount.sql').read_text())
     return '\n'.join(statements) + '\n'
 
 

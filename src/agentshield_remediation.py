@@ -73,10 +73,10 @@ def applied_cases(session, campaign_id):
             (decoded(row.get('CASE_IDS')) or ([row['CASE_ID']] if row.get('CASE_ID') else []))}
 
 
-def remaining_fixes(proposal, live, done):
+def remaining_fixes(proposal, live, done, target=None):
     """Fixes not yet applied whose change is not already present on the live spec."""
     return [fix['case_id'] for fix in proposal.get('fixes', [])
-            if fix['case_id'] not in done and apply_actions(live, fix['actions']) != live]
+            if fix['case_id'] not in done and apply_actions(live, fix['actions'], target) != live]
 
 
 def checked_campaign(session, campaign_id):
@@ -106,11 +106,11 @@ def prepare(session, campaign_id, case_id):
     live = target_spec(session, target)
     if digest(live) != expected_hash(session, campaign_id, current['TARGET_HASH']):
         raise ValueError('TARGET_CONFIGURATION_CHANGED')
-    after = apply_actions(live, fix['actions'])
+    after = apply_actions(live, fix['actions'], target)
     if after == live:
         return {'status': 'ALREADY_COVERED', 'case_id': case_id, 'fix_id': fix['fix_id'],
                 'note': 'An earlier fix already made this change; nothing to apply for this case.',
-                'remaining_fixes': remaining_fixes(proposal, live, applied_cases(session, campaign_id))}
+                'remaining_fixes': remaining_fixes(proposal, live, applied_cases(session, campaign_id), target)}
     proposal_hash = digest({'fix': fix['fix_id'], 'hash': digest(live)})
     apply_id, token = mint(session, campaign_id, 'APPLY', fix['fix_id'], target, case_id, fix['actions'],
                            proposal_hash, live, after)
@@ -207,9 +207,12 @@ def apply(session, apply_id, proposal_hash, token, client_receipt=''):
     try:
         if digest(target_spec(session, target)) != pending['TARGET_HASH_BEFORE']:
             raise ValueError('TARGET_CONFIGURATION_CHANGED')
+        if pending['KIND'] == 'APPLY' and any(action.get('type') == 'department_repair' for action in actions):
+            if digest(apply_actions(before, actions, target)) != digest(desired):
+                raise ValueError('DEPARTMENT_RECIPE_PREVIEW_MISMATCH')
         set_spec(session, target, desired)
         actual = target_spec(session, target)
-        if pending['KIND'] == 'APPLY' and not verify(actual, actions):
+        if pending['KIND'] == 'APPLY' and not verify(actual, actions, target):
             raise ValueError('VERIFY_FIX_NOT_PRESENT')
         if pending.get('SELECTION_ID') and digest(actual) != digest(desired):
             raise ValueError('VERIFY_BUNDLE_MISMATCH')
@@ -242,7 +245,7 @@ def apply(session, apply_id, proposal_hash, token, client_receipt=''):
         return result
     original = campaign(session, pending['CAMPAIGN_ID'])
     remaining = remaining_fixes(decoded(original['PROPOSAL']) or {}, actual,
-                                applied_cases(session, pending['CAMPAIGN_ID']))
+                                applied_cases(session, pending['CAMPAIGN_ID']), target)
     result['remaining_fixes'] = remaining
     if remaining:
         result['retest_status'] = 'WAITING_FOR_REMAINING_FIXES'

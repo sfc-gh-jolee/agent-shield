@@ -32,6 +32,34 @@ class TeamTests(unittest.TestCase):
         self.assertIn('label exactly "shieldbot-<batch_id>.html"', test)
         self.assertIn('ending in .html', test)
 
+    def test_post_fix_retests_use_saved_chat_summary_without_html_export(self):
+        payload = setup.setup_payloads('sandbox', 'ABC123', '/tmp/ws')
+        testbot = next(bot for bot in payload['bots'] if bot['id'] == 'agentshield-test')
+        initial, retest = testbot['description'].split('\n\nRETEST:', 1)
+        self.assertIn('For the initial scan only', initial)
+        self.assertIn('batch_report --batch-id <id> --output', initial)
+        self.assertIn('snowbots_artifact_share', initial)
+        for required in ('finish_selection --selection-id <id>', 'selection_status and watch',
+                         'call finish_selection again to close the selection',
+                         'selection_status for the saved before/after comparison',
+                         'Use report_summary only', 'Post-fix retests are chat-only',
+                         'do not call report, batch_report or refresh_batch_report',
+                         'Only export a retest report if the user explicitly requests it',
+                         'skipped/denied findings, inconclusives and benign baseline regressions',
+                         'No automatic second round of fixes or further handoff'):
+            self.assertIn(required, retest)
+        for old_instruction in ('Fetch report_summary/report', 'attach reports with', '--output'):
+            self.assertNotIn(old_instruction, retest)
+
+    def test_entire_team_preserves_chat_only_retest_delivery(self):
+        payload = setup.setup_payloads('sandbox', 'ABC123', '/tmp/ws')
+        for bot in payload['bots']:
+            with self.subTest(bot=bot['id']):
+                self.assertIn('REPORT DELIVERY: Keep the initial scan HTML attachment.', bot['description'])
+                self.assertIn('"chat-only results; no HTML export"', bot['description'])
+                self.assertIn('earlier failed retest export', bot['description'])
+                self.assertIn('never changes verdicts or hides testing errors', bot['description'])
+
     def test_agent_pages_cover_catalog_within_card_limits(self):
         sys.path.insert(0, str(ROOT / 'src'))
         import campaign_client

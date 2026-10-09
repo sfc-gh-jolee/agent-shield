@@ -185,6 +185,12 @@ class CampaignContractTests(unittest.TestCase):
         self.assertEqual(by_case['b']['actions'], [{'type': 'add_guardrail', 'category': 'data_exfiltration'}])
         summary['cases'] = summary['cases'][2:]
         self.assertEqual(MODULE.remediation_preview(current, summary, {})['status'], 'NO_FIX_NEEDED')
+        # A failed baseline with a mappable reason gets the reviewed guardrail; tools it called stay.
+        summary['cases'][1]['REASON'] = 'UNAUTHORIZED_POLICY_DISCLOSURE_AND_ROLE_MISMATCH'
+        proposal = MODULE.remediation_preview(current, summary, {'d': {'tools': ['EmployeeLookup']}})
+        self.assertEqual(proposal['status'], 'READY_FOR_APPROVAL')
+        self.assertEqual(proposal['fixes'][0]['category'], 'baseline')
+        self.assertEqual(proposal['fixes'][0]['actions'], [{'type': 'add_guardrail', 'category': 'pii_extraction'}])
 
     def test_untrusted_action_cannot_apply_sql(self):
         with self.assertRaises(ValueError):
